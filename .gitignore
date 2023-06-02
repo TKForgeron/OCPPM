@@ -5,6 +5,7 @@ BPI*/
 
 # PyG dataset files
 *.pt
+*.csv.gz
 
 # Pickled objects and data files
 *.fs

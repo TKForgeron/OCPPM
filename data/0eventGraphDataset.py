@@ -2,15 +2,16 @@
 # from dataclasses import dataclass, field
 # import numpy as np
 # from warnings import warn
-from tqdm import tqdm
-from typing import Any
 import os
-from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
 import pickle
+from typing import Any
+
 import torch
 import torch_geometric
-from torch_geometric.data import Dataset, Data
+from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
+from torch_geometric.data import Data, Dataset
 from torch_geometric.loader import DataLoader
+from tqdm import tqdm
 
 print(f"Torch version: {torch.__version__}")
 print(f"Cuda available: {torch.cuda.is_available()}")
