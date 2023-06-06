@@ -30,7 +30,7 @@ class EFG(Dataset):
         self,
         root,
         filename,
-        label_key: str,
+        label_key: tuple[str, tuple],
         train: bool = False,
         validation: bool = False,
         test: bool = False,
