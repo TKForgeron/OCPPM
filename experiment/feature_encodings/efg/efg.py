@@ -1,24 +1,20 @@
 # import pandas as pd
-# from dataclasses import dataclass, field
-# import numpy as np
-# from warnings import warn
 import os
 import pickle
-from typing import Any
 
 import torch
 import torch_geometric
 from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
 from torch_geometric.data import Data, Dataset
-from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 print(f"Torch version: {torch.__version__}")
 print(f"Cuda available: {torch.cuda.is_available()}")
 print(f"Torch geometric version: {torch_geometric.__version__}")
+print()
 
 
-class EventGraphDataset(Dataset):
+class EFG(Dataset):
     """
     Class that serves as an adapter between ocpa and PyG.
 
@@ -81,7 +77,7 @@ class EventGraphDataset(Dataset):
         elif self.test:
             self._base_filename += "_test"
         self._file_extension = file_extension
-        super(EventGraphDataset, self).__init__(root, transform, pre_transform)
+        super(EFG, self).__init__(root, transform, pre_transform)
 
     @property
     def raw_file_names(self):
@@ -291,31 +287,3 @@ class EventGraphDataset(Dataset):
             os.path.join(self.processed_dir, self.__get_graph_filename(graph_idx))
         )
         return data
-
-
-def create_dataloader(
-    batch_size: int,
-    root_path: str,
-    feature_storage_file: str,
-    label_key: tuple[str, tuple],
-    train: bool = False,
-    validation: bool = False,
-    test: bool = False,
-    shuffle: bool = True,
-    verbosity: int = 1,
-    num_workers: int = 0,
-) -> DataLoader[Any]:
-    return DataLoader(
-        dataset=EventGraphDataset(
-            root=root_path,
-            filename=feature_storage_file,
-            label_key=label_key,
-            train=train,
-            validation=validation,
-            test=test,
-            verbosity=verbosity,
-        ),
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-    )
