@@ -38,6 +38,7 @@ class EFG(Dataset):
         transform=None,
         pre_transform=None,
         file_extension: str = "pt",
+        use_cache: bool = True,
     ):
         """
         root (string, optional): Where the dataset should be stored. This folder is split
@@ -77,6 +78,7 @@ class EFG(Dataset):
         elif self.test:
             self._base_filename += "_test"
         self._file_extension = file_extension
+        self.use_cache = use_cache
         super(EFG, self).__init__(root, transform, pre_transform)
 
     @property
@@ -89,32 +91,35 @@ class EFG(Dataset):
     @property
     def processed_file_names(self):
         """If these files are found in raw_dir, processing is skipped"""
-
-        # Retrieve Feature_Storage object from disk
-        with open(self.raw_paths[0], "rb") as file:
-            self.data = pickle.load(file)
-
-        if self.train:
-            processed_file_names = [
-                self.__get_graph_filename(i)
-                for i in range(len(self.data.train_indices))
-            ]
-        elif self.validation:
-            processed_file_names = [
-                self.__get_graph_filename(i)
-                for i in range(len(self.data.validation_indices))
-            ]
-        elif self.test:
-            processed_file_names = [
-                self.__get_graph_filename(i) for i in range(len(self.data.test_indices))
-            ]
+        if not self.use_cache:
+            return []
         else:
-            processed_file_names = [
-                self.__get_graph_filename(i)
-                for i in range(len(self.data.feature_graphs))
-            ]
-        self.size = len(processed_file_names)
-        return processed_file_names
+            # Retrieve Feature_Storage object from disk
+            with open(self.raw_paths[0], "rb") as file:
+                self.data = pickle.load(file)
+
+            if self.train:
+                processed_file_names = [
+                    self.__get_graph_filename(i)
+                    for i in range(len(self.data.train_indices))
+                ]
+            elif self.validation:
+                processed_file_names = [
+                    self.__get_graph_filename(i)
+                    for i in range(len(self.data.validation_indices))
+                ]
+            elif self.test:
+                processed_file_names = [
+                    self.__get_graph_filename(i)
+                    for i in range(len(self.data.test_indices))
+                ]
+            else:
+                processed_file_names = [
+                    self.__get_graph_filename(i)
+                    for i in range(len(self.data.feature_graphs))
+                ]
+            self.size = len(processed_file_names)
+            return processed_file_names
 
     def _set_size(self, size: int) -> None:
         """Sets the number of graphs stored in this EventGraphDataset object."""
@@ -203,7 +208,7 @@ class EFG(Dataset):
         self,
         feature_graph: FeatureStorage.Feature_Graph,
         label_key: tuple[str, tuple],
-    ) -> list[torch.float]:
+    ) -> torch.Tensor:
         """
         Impure function that splits off the target label from a feature graph
         and returns them both separately in a tuple of shape
@@ -250,15 +255,14 @@ class EFG(Dataset):
         # Actually map event_id to node_index
         # so we have an index-based (event_id-agnostic) directed COO adjacency_matrix.
         adjacency_matrix_COO = [
-            [node_index_map[e.source] for e in feature_graph.edges],
-            [node_index_map[e.target] for e in feature_graph.edges],
+            (node_index_map[e.source], node_index_map[e.target])
+            for e in feature_graph.edges
         ]
-
-        return torch.tensor(adjacency_matrix_COO, dtype=torch.long)
+        return torch.tensor(adjacency_matrix_COO, dtype=torch.long).T
 
     def __get_node_index_mapping(
         self, feature_graph: FeatureStorage.Feature_Graph
-    ) -> dict:
+    ) -> dict[int, int]:
         """Returns a dictionary containing a mapping from event_ids to node indices in the given graph"""
         return {
             id: i
