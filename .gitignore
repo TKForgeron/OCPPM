@@ -1,5 +1,11 @@
 # Scroll down to see 'DO NOT IGNORE' files
 
+# Local test files
+ltest*
+
+# CS dataset
+data/CS/
+
 # BPI datasets
 BPI*/
 
