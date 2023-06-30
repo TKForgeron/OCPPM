@@ -21,8 +21,9 @@ with open(
     feature_storage = pickle.load(file)
 
 eft = tabular.construct_table(feature_storage)
+
 # rename columns that contain JSON special characters (as they are not supported by LightGBM)
 eft = eft.rename(columns=lambda col_name: re.sub("[^A-Za-z0-9_]+", "", str(col_name)))
 
-
+# export the dataframe to csv
 eft.to_csv(event_feature_table_out_file, index=False)

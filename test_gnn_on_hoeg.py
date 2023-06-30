@@ -1,4 +1,3 @@
-# %%
 # Python native
 import os
 
@@ -47,7 +46,7 @@ from tqdm import tqdm
 
 # Custom imports
 # from config.files.bpi17 import bpi17_config
-from experiment.feature_encodings.hoeg.hoeg import HOEG
+from loan_application_experiment.feature_encodings.hoeg.hoeg import HOEG
 
 # from experiment.feature_encodings.hoeg.hoeg import HOEG
 
@@ -69,7 +68,6 @@ target_label = (feature_factory.EVENT_REMAINING_TIME, ())
 skip_cache = False
 
 
-# %%
 def count_parameters(model: torch.nn.Module) -> int:
     # with torch.no_grad():  # Initialize lazy modules.
     #     out = model(data.x_dict, data.edge_index_dict)
@@ -265,7 +263,6 @@ def run_training(
 #     return metric(y_preds.to(device), y_true.to(device))
 
 
-# %%
 ds_train = HOEG(
     train=True,
     root=storage_path,
@@ -277,7 +274,6 @@ ds_train = HOEG(
     skip_cache=skip_cache,
 )
 
-# %%
 ds_val = HOEG(
     validation=True,
     root=storage_path,
@@ -290,7 +286,6 @@ ds_val = HOEG(
 )
 
 
-# %%
 # ds_test = HOEG(
 #     test=True,
 #     root=storage_path,
@@ -301,12 +296,10 @@ ds_val = HOEG(
 #     transform=T.ToUndirected()
 # )
 
-# %%
 train_loader, val_loader = prepare_dataloaders(
     batch_size=128, ds_train=ds_train, ds_val=ds_val
 )
 
-# %%
 # FIND OUT WHY GETTING ERROR '...negative dimension...'
 # bc all is equal to the GAT in run_ofg.ipynb
 # --> I think bc
@@ -328,9 +321,9 @@ meta_data = (
 class GAT(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels):
         super().__init__()
-        self.conv1 = GeneralConv((-1, -1), hidden_channels, add_self_loops=False)
+        self.conv1 = GATv2Conv((-1, -1), hidden_channels, add_self_loops=False)
         self.lin1 = Linear(-1, hidden_channels)
-        self.conv2 = GeneralConv((-1, -1), out_channels, add_self_loops=False)
+        self.conv2 = GATv2Conv((-1, -1), out_channels, add_self_loops=False)
         self.lin2 = Linear(-1, out_channels)
 
     def forward(self, x, edge_index):
@@ -345,14 +338,14 @@ class GAT(torch.nn.Module):
         return x
 
 
-model = GAT(hidden_channels=64, out_channels=1)
+model = GAT(hidden_channels=128, out_channels=1)
 model = to_hetero(model, meta_data, aggr="sum")
 # model.double()
 
 
 optimizer = O.Adam(
     model.parameters(),
-    lr=0.001,
+    lr=0.0001,
     betas=(0.9, 0.999),
     eps=1e-08,
     weight_decay=0,

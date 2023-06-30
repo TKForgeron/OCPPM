@@ -129,7 +129,7 @@ class EFG(Dataset):
         """Gets the number of graphs stored in this EventGraphDataset object."""
         return self._size
 
-    size: int = property(_get_size, _set_size)
+    size = property(_get_size, _set_size)
 
     def process(self):
         """Processes a Feature_Storage object into PyG instance graph objects"""
@@ -230,7 +230,7 @@ class EFG(Dataset):
         [Number of Nodes, Node Feature size]
         """
         # Append node features to matrix
-        node_feature_matrix: list[list[torch.float]] = [
+        node_feature_matrix: list[list[float]] = [
             list(node.attributes.values()) for node in feature_graph.nodes
         ]
 
