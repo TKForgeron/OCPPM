@@ -2,13 +2,10 @@
 import pickle
 import re
 
-# General data handling
-import pandas as pd
-
 # Object centric data handling
 from ocpa.algo.predictive_monitoring import tabular
 
-feature_storage_in_file = "data/BPI17/feature_encodings/EFG/efg/raw/BPI2017-feature_storage-split-[C1-3,C5,P1-6,O2,O3,O5].fs"
+feature_storage_in_file = "data/BPI17/feature_encodings/EFG/efg/raw/BPI_split_[C2_P2_P3_P5_O3_Action_EventOrigin_OrgResource].fs"
 
 event_feature_table_out_file = (
     "data/BPI17/feature_encodings/EFT/event_based_features.csv"
@@ -26,4 +23,4 @@ eft = tabular.construct_table(feature_storage)
 eft = eft.rename(columns=lambda col_name: re.sub("[^A-Za-z0-9_]+", "", str(col_name)))
 
 # export the dataframe to csv
-eft.to_csv(event_feature_table_out_file, index=False)
+eft.to_csv(event_feature_table_out_file, index=False, sep=';')
