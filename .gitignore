@@ -7,7 +7,7 @@ ltest*
 data/CS/
 
 # BPI datasets
-BPI*/
+data/BPI*
 
 # PyG dataset files
 *.pt
