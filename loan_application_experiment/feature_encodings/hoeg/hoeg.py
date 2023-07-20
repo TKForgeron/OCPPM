@@ -8,7 +8,8 @@ import pandas as pd
 import torch
 import torch_geometric
 import torch_geometric.transforms as T
-from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
+from ocpa.algo.predictive_monitoring.obj import \
+    Feature_Storage as FeatureStorage
 from torch_geometric.data import Dataset, HeteroData
 from tqdm import tqdm
 
@@ -139,16 +140,6 @@ class HOEG(EFG):
             self.size = len(processed_file_names)
             return processed_file_names
 
-    # def _set_size(self, size: int) -> None:
-    #     """Sets the number of graphs stored in this EventGraphDataset object."""
-    #     self._size = size
-
-    # def _get_size(self) -> int:
-    #     """Gets the number of graphs stored in this EventGraphDataset object."""
-    #     return self._size
-
-    # size = property(_get_size, _set_size)
-
     def process(self):
         """Processes a Feature_Storage object into PyG instance graph objects"""
 
@@ -176,22 +167,6 @@ class HOEG(EFG):
         else:
             # Write all graphs to disk
             self._feature_graphs_to_disk(self.data.feature_graphs)
-
-    # def _feature_graphs_to_disk(
-    #     self,
-    #     feature_graphs: list[FeatureStorage.Feature_Graph],
-    # ):
-    #     # Set size of the dataset
-    #     self.size = len(feature_graphs)
-    #     # Save each feature_graph instance
-    #     for index, feature_graph in self.__custom_verbosity_enumerate(
-    #         feature_graphs, miniters=self._verbosity
-    #     ):
-    #         # Save a feature_graph instance
-    #         self._feature_graph_to_graph_to_disk(
-    #             feature_graph=feature_graph,
-    #             graph_idx=index,
-    #         )
 
     def _feature_graph_to_graph_to_disk(
         self,
@@ -245,7 +220,7 @@ class HOEG(EFG):
             hetero_data[subject, predicate, object].edge_index = edge_index_dict[
                 edge_type
             ]
-        # application <-> application is not present in the dataset
+        # application <-> application is not present in the dataset, so fill it with empty tensors
         hetero_data[
             "application", "interacts", "application"
         ].edge_index = torch.tensor([[], []], dtype=torch.int64)
@@ -332,13 +307,11 @@ class HOEG(EFG):
             object_feature_matrices["application"]
             .drop(["application_index", "object_index"], axis=1)
             .iloc[object_id_to_feature_matrix_index["application"]]
-            # .values
         )
         offer_node_feature_matrix = (
             object_feature_matrices["offer"]
             .drop(["offer_index", "object_index"], axis=1)
             .iloc[object_id_to_feature_matrix_index["offer"]]
-            # .values
         )
 
         node_features_dict = {
@@ -351,8 +324,7 @@ class HOEG(EFG):
                     dtype=torch.float,
                 ),
                 "x": torch.tensor(
-                    application_node_feature_matrix.drop(
-                        ["@@object_lifecycle_duration"], axis=1
+                    application_node_feature_matrix.drop(columns=["@@object_lifecycle_duration"]
                     ).values,
                     dtype=torch.float,
                 ),
@@ -363,8 +335,7 @@ class HOEG(EFG):
                     dtype=torch.float,
                 ),
                 "x": torch.tensor(
-                    offer_node_feature_matrix.drop(
-                        ["@@object_lifecycle_duration"], axis=1
+                    offer_node_feature_matrix.drop(columns=["@@object_lifecycle_duration"]
                     ).values,
                     dtype=torch.float,
                 ),
