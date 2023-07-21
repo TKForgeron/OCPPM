@@ -3,10 +3,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.nn as pygnn
 from torch.nn import BatchNorm1d, Linear, ModuleList, MSELoss, Sequential
-from torch_geometric.nn import (BatchNorm, GATConv, GATv2Conv, GCNConv,
-                                GeneralConv, GINConv, Linear, SAGEConv,
-                                TopKPooling, TransformerConv, global_add_pool,
-                                global_max_pool, global_mean_pool, to_hetero)
+from torch_geometric.nn import (
+    BatchNorm,
+    GATConv,
+    GATv2Conv,
+    GCNConv,
+    GeneralConv,
+    GINConv,
+    Linear,
+    SAGEConv,
+    TopKPooling,
+    TransformerConv,
+    global_add_pool,
+    global_max_pool,
+    global_mean_pool,
+    to_hetero,
+)
 
 
 class GraphModel(torch.nn.Module):
@@ -58,22 +70,24 @@ class AdamsGCN(GraphModel):
         out = self.out(x)
         return out
 
+
 class SimpleGNN_EFG(GraphModel):
     """Implementation of a Graph Convolutional Network as in Adams et al. (2022)"""
+
     # SimpleGNN_EFG(64, 1): 0.4382 MAE (test), 6k params
-    def __init__(self, hidden_channels:int=64, out_channels:int=1):
+    def __init__(self, hidden_channels: int = 64, out_channels: int = 1):
         super().__init__()
-        self.conv1 = GCNConv(-1,hidden_channels)
-        self.conv2 = GCNConv(-1,hidden_channels)
+        self.conv1 = GCNConv(-1, hidden_channels)
+        self.conv2 = GCNConv(-1, hidden_channels)
         self.pool1 = global_add_pool
-        self.out = Linear(-1,out_channels)
+        self.out = Linear(-1, out_channels)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
         x = x.relu()
         x = self.conv2(x, edge_index)
         x = x.relu()
-        x=self.pool1(x,batch)
+        x = self.pool1(x, batch)
         x = self.out(x)
         return x
 
@@ -114,43 +128,44 @@ class AGNN_EFG(GraphModel):
         x = self.lin3(x)
         return x
 
+
 class HigherOrderGNN_EFG(GraphModel):
     """
-    Implementation of a Higher Order Graph Neural Network for EFG, 
-    presented by Morris et al. (2019). This type of GNN operator is 
+    Implementation of a Higher Order Graph Neural Network for EFG,
+    presented by Morris et al. (2019). This type of GNN operator is
     especially suitable for graph-level prediction tasks.
 
-    The authors show that GNNs have the same expressiveness as the 
-    1-WL in terms of distinguishing non-isomorphic (sub-)graphs, 
-    and propose a generalization of GNNs, called k-dimensional GNNs 
-    (k-GNNs), which can take higher-order graph structures at multiple 
+    The authors show that GNNs have the same expressiveness as the
+    1-WL in terms of distinguishing non-isomorphic (sub-)graphs,
+    and propose a generalization of GNNs, called k-dimensional GNNs
+    (k-GNNs), which can take higher-order graph structures at multiple
     scales into account.
 
     The "k" in k-dimensional refers to the number of scales or levels of
-    higher-order structures that the network can capture. 
-        For example, a 2-dimensional GNN could capture both pairwise 
-        connections between nodes (1st order) and communities of nodes 
-        (2nd order), while a 3-dimensional GNN could capture even more 
+    higher-order structures that the network can capture.
+        For example, a 2-dimensional GNN could capture both pairwise
+        connections between nodes (1st order) and communities of nodes
+        (2nd order), while a 3-dimensional GNN could capture even more
         complex patterns that involve groups of communities (3rd order).
 
-    In this context, higher-order graph structures refer to patterns 
-    or relationships that exist between groups of nodes in a graph, 
-    beyond just the pairwise connections between individual nodes. 
-        For example, in a social network, higher-order structures 
-        could include communities of users who interact with each 
-        other more frequently than with users outside of their community. 
-        In a molecule graph, higher-order structures could include 
-        functional groups that are composed of multiple atoms and have 
-        specific chemical properties. 
-    By taking these higher-order structures into account, k-dimensional 
-    GNNs can capture more complex relationships between nodes in a graph 
-    and potentially improve the accuracy of graph classification and 
+    In this context, higher-order graph structures refer to patterns
+    or relationships that exist between groups of nodes in a graph,
+    beyond just the pairwise connections between individual nodes.
+        For example, in a social network, higher-order structures
+        could include communities of users who interact with each
+        other more frequently than with users outside of their community.
+        In a molecule graph, higher-order structures could include
+        functional groups that are composed of multiple atoms and have
+        specific chemical properties.
+    By taking these higher-order structures into account, k-dimensional
+    GNNs can capture more complex relationships between nodes in a graph
+    and potentially improve the accuracy of graph classification and
     regression tasks.
     """
 
     # HigherOrderGNN_EFG(48, 1): 0.4040 MAE (test)
 
-    def __init__(self, hidden_channels:int=48, out_channels:int=1):
+    def __init__(self, hidden_channels: int = 48, out_channels: int = 1):
         super().__init__()
         self.conv1 = pygnn.GraphConv(-1, hidden_channels)
         self.conv2 = pygnn.GraphConv(-1, hidden_channels)
@@ -167,6 +182,7 @@ class HigherOrderGNN_EFG(GraphModel):
         x = self.pool1(x, batch)
         x = self.lin_out(x)
         return x
+
 
 """
 What has been tried:

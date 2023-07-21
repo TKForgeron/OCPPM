@@ -8,11 +8,6 @@ from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorag
 from torch_geometric.data import Data, Dataset
 from tqdm import tqdm
 
-print(f"Torch version: {torch.__version__}")
-print(f"Cuda available: {torch.cuda.is_available()}")
-print(f"Torch geometric version: {torch_geometric.__version__}")
-print()
-
 
 class EFG(Dataset):
     """

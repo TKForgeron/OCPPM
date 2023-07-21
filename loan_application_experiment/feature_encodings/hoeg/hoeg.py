@@ -8,19 +8,18 @@ import pandas as pd
 import torch
 import torch_geometric
 import torch_geometric.transforms as T
-from ocpa.algo.predictive_monitoring.obj import \
-    Feature_Storage as FeatureStorage
+from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
 from torch_geometric.data import Dataset, HeteroData
 from tqdm import tqdm
 
 from ..efg.efg import EFG
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    filename="logging/debug.log",
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     format="%(asctime)s %(levelname)s %(message)s",
+#     datefmt="%Y-%m-%d %H:%M:%S",
+#     filename="logging/debug.log",
+# )
 
 
 class HOEG(EFG):
@@ -324,7 +323,8 @@ class HOEG(EFG):
                     dtype=torch.float,
                 ),
                 "x": torch.tensor(
-                    application_node_feature_matrix.drop(columns=["@@object_lifecycle_duration"]
+                    application_node_feature_matrix.drop(
+                        columns=["@@object_lifecycle_duration"]
                     ).values,
                     dtype=torch.float,
                 ),
@@ -335,7 +335,8 @@ class HOEG(EFG):
                     dtype=torch.float,
                 ),
                 "x": torch.tensor(
-                    offer_node_feature_matrix.drop(columns=["@@object_lifecycle_duration"]
+                    offer_node_feature_matrix.drop(
+                        columns=["@@object_lifecycle_duration"]
                     ).values,
                     dtype=torch.float,
                 ),
