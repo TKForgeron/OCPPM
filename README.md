@@ -1,5 +1,5 @@
 # OCPPM
-Object-centric predictive process monitoring research project. This project is set up in a modular and configurable way. Hydra is used to configure the different modules. Skorch is used to remove boilerplate code introduced by PyTorch.
+Object-centric predictive process monitoring research project. The purpose of this project is to handle object-centric event data as naturally as possible for machine learning purposes. This means that graph structures are retained and even learned from.
 
 ## Updating ocpa
 1. `pip uninstall ocpa`
