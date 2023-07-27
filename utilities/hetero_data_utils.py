@@ -10,7 +10,8 @@ import torch
 
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
-from torch_geometric.loader import DataLoader
+from torch_geometric.data import Data, HeteroData
+from torch_geometric.loader import DataLoader, NeighborLoader
 from tqdm import tqdm
 
 # Custom imports
@@ -85,7 +86,7 @@ def print_hetero_dataset_summaries(
     print(ds_test.get_summary(), "\n")
 
 
-def prepare_hetero_dataloaders(
+def hetero_dataloaders_from_datasets(
     batch_size: int,
     ds_train: HOEG = None,
     ds_val: HOEG = None,
@@ -131,3 +132,52 @@ def prepare_hetero_dataloaders(
         )
         dataloaders.append(test_loader)
     return dataloaders
+
+
+def hetero_dataloaders_from_hetero_data(
+    hetero_data: HeteroData or Data,
+    batch_size: int,
+    num_neighbors: list[int],
+    node_type: str,  # node type to use for neighbor sampling
+    shuffle: bool = True,
+    pin_memory: bool = True,
+    num_workers: int = 4,
+    generator: torch.Generator = None,
+) -> tuple[NeighborLoader, NeighborLoader, NeighborLoader]:
+    train_loader = NeighborLoader(
+        hetero_data,
+        # Sample neighbors for each node and each edge type:
+        num_neighbors=num_neighbors,
+        # Use certain batch size for sampling training nodes of type "application":
+        batch_size=batch_size,
+        input_nodes=(node_type, hetero_data[node_type].train_mask),
+        shuffle=shuffle,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        generator=generator,
+    )
+    val_loader = NeighborLoader(
+        hetero_data,
+        # Sample neighbors for each node and each edge type:
+        num_neighbors=num_neighbors,
+        # Use certain batch size for sampling training nodes of type "application":
+        batch_size=batch_size,
+        input_nodes=(node_type, hetero_data[node_type].val_mask),
+        shuffle=shuffle,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        generator=generator,
+    )
+    test_loader = NeighborLoader(
+        hetero_data,
+        # Sample neighbors for each node and each edge type:
+        num_neighbors=num_neighbors,
+        # Use certain batch size for sampling training nodes of type "application":
+        batch_size=batch_size,
+        input_nodes=(node_type, hetero_data[node_type].test_mask),
+        shuffle=shuffle,
+        pin_memory=pin_memory,
+        num_workers=num_workers,
+        generator=generator,
+    )
+    return train_loader, val_loader, test_loader

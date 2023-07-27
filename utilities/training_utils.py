@@ -1,9 +1,9 @@
 # Python native
+import os
 from typing import Any, Callable
 
 # PyG
 import torch
-
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -11,7 +11,7 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 # Custom imports
-from loan_application_experiment.models.geometric_models import GraphModel
+from models.definitions.geometric_models import GraphModel
 
 
 def train_one_epoch(
@@ -21,6 +21,8 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     tb_writer: SummaryWriter,
+    x_dtype: torch.dtype,
+    y_dtype: torch.dtype,
     device: torch.device,
     verbose: bool = True,
 ) -> float:
@@ -35,9 +37,9 @@ def train_one_epoch(
         batch.to(device)
         # Every data instance is an input + label pair
         inputs, adjacency_matrix, labels = (
-            batch.x.float(),  # k times the batch_size, where k is the subgraph size
+            batch.x.to(x_dtype),  # k times the batch_size, where k is the subgraph size
             batch.edge_index,
-            batch.y.float(),
+            batch.y.to(y_dtype),
         )
         # Reset gradients (set_to_none is faster than to zero)
         optimizer.zero_grad(set_to_none=True)
@@ -70,6 +72,8 @@ def run_training(
     loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     early_stopping_criterion: int,
     model_path_base: str,
+    x_dtype: torch.dtype,
+    y_dtype: torch.dtype,
     device: torch.device,
     verbose: bool = True,
 ) -> str:
@@ -79,11 +83,22 @@ def run_training(
     writer = SummaryWriter(f"{model_path_base}/run")
     best_vloss = 1_000_000_000_000_000.0
     epochs_without_improvement = 0
+    model.to(x_dtype)
+    model.to(device)
     for epoch in range(num_epochs):
         # Make sure gradient tracking is on, and do a pass over the data
         model.train(True)
         avg_loss = train_one_epoch(
-            epoch, model, train_loader, optimizer, loss_fn, writer, device, verbose
+            epoch_index=epoch,
+            model=model,
+            train_loader=train_loader,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            tb_writer=writer,
+            x_dtype=x_dtype,
+            y_dtype=y_dtype,
+            device=device,
+            verbose=verbose,
         )
 
         # We don't need gradients on to do reporting
@@ -93,9 +108,9 @@ def run_training(
         for i, vdata in enumerate(validation_loader, start=1):
             vdata.to(device)
             vinputs, vadjacency_matrix, vlabels = (
-                vdata.x.float(),
+                vdata.x.to(x_dtype),
                 vdata.edge_index,
-                vdata.y.float(),
+                vdata.y.to(y_dtype),
             )
             voutputs = model(vinputs, edge_index=vadjacency_matrix, batch=vdata.batch)
             vloss = loss_fn(voutputs.squeeze(), vlabels)

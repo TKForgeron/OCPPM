@@ -47,7 +47,7 @@ def train_one_epoch_hetero(
         optimizer.zero_grad(set_to_none=True)
         # Passing the node features and the connection info
         outputs = model(
-            inputs, edge_index=adjacency_matrix, batch=batch[target_node_type].batch
+            inputs, edge_index=adjacency_matrix  # , batch=batch[target_node_type].batch
         )
         # Compute loss and gradients
         loss = loss_fn(torch.squeeze(outputs[target_node_type]), labels)

@@ -32,8 +32,8 @@ def evaluate_hetero_model(
             return (
                 model(
                     batch_inputs,
-                    edge_index=batch_adjacency_matrix,
-                    batch=batch[target_node_type].batch,
+                    edge_index=batch_adjacency_matrix
+                    # , batch=batch[target_node_type].batch,
                 ),
                 batch_labels,
             )

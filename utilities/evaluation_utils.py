@@ -1,12 +1,13 @@
 import numbers
 from typing import Any, Callable
 
+import numpy as np
 import sklearn.metrics as metrics
 import torch
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
-from loan_application_experiment.models.geometric_models import GraphModel
+from models.definitions.geometric_models import GraphModel
 
 
 def get_json_serializable_dict(d):
@@ -73,26 +74,24 @@ def evaluate_model(
     evaluation_reporter: Callable[
         [torch.Tensor, torch.Tensor, bool, bool], dict[str, dict[str, Any]]
     ],
-    regression: bool,
     classification: bool,
+    regression: bool,
     verbose: bool = False,
 ) -> dict[str, dict[str, Any]]:
     device = torch.device("cpu")
+
+    def _eval_batch(batch, model):
+        batch_inputs, batch_adjacency_matrix, batch_labels = (
+            batch.x.float(),
+            batch.edge_index,
+            batch.y.float(),
+        )
+        return (
+            model(batch_inputs, edge_index=batch_adjacency_matrix, batch=batch.batch),
+            batch_labels,
+        )
+
     with torch.no_grad():
-
-        def _eval_batch(batch, model):
-            batch_inputs, batch_adjacency_matrix, batch_labels = (
-                batch.x.float(),
-                batch.edge_index,
-                batch.y.float(),
-            )
-            return (
-                model(
-                    batch_inputs, edge_index=batch_adjacency_matrix, batch=batch.batch
-                ),
-                batch_labels,
-            )
-
         model.eval()
         model.train(False)
         model.to(device)
@@ -105,9 +104,21 @@ def evaluate_model(
             y_preds = torch.cat((y_preds, batch_y_preds))
             y_true = torch.cat((y_true, batch_y_true))
         y_preds = torch.squeeze(y_preds)
-    return evaluation_reporter(
-        y_preds.to(device), y_true.to(device), regression, classification
-    )
+    if classification:
+        # yield predicted class probabilities,
+        # and convert to hard predictions before passing to the `evaluation_reporter`
+        y_probs = y_preds.to(device)
+        y_preds = torch.tensor(
+            np.apply_along_axis(get_preds_from_probs, axis=1, arr=y_probs)
+        )
+        return evaluation_reporter(
+            y_preds, y_true.to(device), regression, classification
+        )
+    else:
+        # assuming user wants a regression report
+        return evaluation_reporter(
+            y_preds.to(device), y_true.to(device), regression, classification
+        )
 
 
 def get_best_model_evaluation(
@@ -119,8 +130,8 @@ def get_best_model_evaluation(
     evaluation_reporter: Callable[
         [torch.Tensor, torch.Tensor, bool, bool], dict[str, dict[str, Any]]
     ],
-    regression: bool,
     classification: bool,
+    regression: bool,
     verbose: bool = True,
 ) -> dict[str, dict[str, Any]]:
     best_state_dict = torch.load(model_state_dict_path)  # , map_location=device
@@ -132,24 +143,24 @@ def get_best_model_evaluation(
             model=model,
             dataloader=train_loader,
             evaluation_reporter=evaluation_reporter,
-            regression=regression,
             classification=classification,
+            regression=regression,
             verbose=verbose,
         ),
         f"Validation": evaluate_model(
             model=model,
             dataloader=val_loader,
             evaluation_reporter=evaluation_reporter,
-            regression=regression,
             classification=classification,
+            regression=regression,
             verbose=verbose,
         ),
         f"Test": evaluate_model(
             model=model,
             dataloader=test_loader,
             evaluation_reporter=evaluation_reporter,
-            regression=regression,
             classification=classification,
+            regression=regression,
             verbose=verbose,
         ),
     }

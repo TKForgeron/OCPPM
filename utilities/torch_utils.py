@@ -7,7 +7,7 @@ import psutil
 import torch
 import torch_geometric
 
-from loan_application_experiment.models.geometric_models import GraphModel
+from models.definitions.geometric_models import GraphModel
 
 
 # pass this to the dataloaders to guarantee reproducibility
@@ -54,6 +54,7 @@ def _get_byte_size(bytes, suffix="B") -> str:
         if bytes < factor:
             return f"{bytes:.2f}{unit}{suffix}"
         bytes /= factor
+    return f"{bytes:.2f}{'?'}{suffix}"
 
 
 def print_system_info(gpu_info: bool = True) -> None:
