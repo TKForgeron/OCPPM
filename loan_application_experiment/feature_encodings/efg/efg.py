@@ -1,9 +1,9 @@
 # import pandas as pd
 import os
 import pickle
+from typing import Any, Union
 
 import torch
-import torch_geometric
 from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
 from torch_geometric.data import Data, Dataset
 from tqdm import tqdm
@@ -25,7 +25,10 @@ class EFG(Dataset):
         self,
         root,
         filename,
-        label_key: tuple[str, tuple],
+        label_key: Union[tuple[str, tuple], Any],
+        graph_level_target: bool,
+        target_dtype: torch.dtype = torch.float32,
+        features_dtype: torch.dtype = torch.float32,
         train: bool = False,
         validation: bool = False,
         test: bool = False,
@@ -61,6 +64,9 @@ class EFG(Dataset):
         """
         self.filename = filename
         self.label_key = label_key
+        self.graph_level_target = graph_level_target
+        self.target_dtype = target_dtype
+        self.features_dtype = features_dtype
         self.train = train
         self.validation = validation
         self.test = test
@@ -168,17 +174,22 @@ class EFG(Dataset):
             self._feature_graph_to_graph_to_disk(
                 feature_graph=feature_graph,
                 graph_idx=index,
+                graph_level_target=self.graph_level_target,
             )
 
     def _feature_graph_to_graph_to_disk(
         self,
         feature_graph: FeatureStorage.Feature_Graph,
         graph_idx: int,
+        graph_level_target: bool,
     ) -> None:
         """Saves a FeatureStorage.Feature_Graph object as PyG Data object(s) to disk."""
         # Split off labels from nodes,
         # and return full graph (cleansed of labels), and list of labels
         labels = self._split_X_y(feature_graph, self.label_key)
+        if graph_level_target:
+            # we assume the graphs are sorted (and yes they are in FeatureStorage)
+            labels = labels[-1]
         # Get node features
         node_feats = self._get_node_features(feature_graph)
         # Get edge features
@@ -204,12 +215,12 @@ class EFG(Dataset):
     def _split_X_y(
         self,
         feature_graph: FeatureStorage.Feature_Graph,
-        label_key: tuple[str, tuple],
+        label_key: Union[tuple[str, tuple], Any],
     ) -> torch.Tensor:
         """
         Impure function that splits off the target label from a feature graph
-        and returns them both separately in a tuple of shape
-        [A Feature_Graph, Number of Nodes]
+        and returns the target labels per node in a tensor of shape
+        [Number of Nodes]
 
         NOTE: This function should only be called once, since after it the label
         key is not present anymore, resulting in a KeyError.
@@ -217,7 +228,7 @@ class EFG(Dataset):
         """
         ys = [node.attributes.pop(label_key) for node in feature_graph.nodes]
 
-        return torch.tensor(ys, dtype=torch.float)
+        return torch.tensor(ys, dtype=self.target_dtype)
 
     def _get_node_features(
         self, feature_graph: FeatureStorage.Feature_Graph
@@ -231,7 +242,7 @@ class EFG(Dataset):
             list(node.attributes.values()) for node in feature_graph.nodes
         ]
 
-        return torch.tensor(node_feature_matrix, dtype=torch.float)
+        return torch.tensor(node_feature_matrix, dtype=self.features_dtype)
 
     def _get_edge_features(self, feature_graph: FeatureStorage.Feature_Graph):
         """

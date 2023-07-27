@@ -2,12 +2,14 @@
 import os
 import pickle
 from dataclasses import dataclass, field
+from typing import Any, Union
 from warnings import warn
 
 import numpy as np
 import torch
 import torch_geometric
-from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
+from ocpa.algo.predictive_monitoring.obj import \
+    Feature_Storage as FeatureStorage
 from torch_geometric.data import Data, Dataset
 from tqdm import tqdm
 
@@ -49,8 +51,11 @@ class EFG_SG(Dataset):
         self,
         root,
         filename,
-        label_key: tuple[str, tuple],
         size_subgraph_samples: int,
+        label_key: Union[tuple[str, tuple], Any],
+        graph_level_target: bool,
+        target_dtype: torch.dtype = torch.float32,
+        features_dtype: torch.dtype = torch.float32,
         train: bool = False,
         validation: bool = False,
         test: bool = False,
@@ -85,8 +90,11 @@ class EFG_SG(Dataset):
             of class `ocpa.algo.predictive_monitoring.obj.Feature_Graph.Feature_Storage`
         """
         self.filename = filename
-        self.label_key = label_key
         self.subgraph_params = SubGraphParameters(size=size_subgraph_samples)
+        self.label_key = label_key
+        self.graph_level_target = graph_level_target
+        self.target_dtype = target_dtype
+        self.features_dtype = features_dtype
         self.train = train
         self.validation = validation
         self.test = test
@@ -274,9 +282,6 @@ class EFG_SG(Dataset):
                     subset=torch.tensor(range(subgraph_idx, i + 1), dtype=torch.long)
                 )  # include last event
                 subgraph.y = subgraph.y[-1]
-                # subgraph = GraphLevelData(
-                #     y=subgraph.y[-1], x=subgraph.x, edge_index=subgraph.edge_index
-                # )
                 torch.save(
                     subgraph,
                     os.path.join(
@@ -292,12 +297,12 @@ class EFG_SG(Dataset):
     def _split_X_y(
         self,
         feature_graph: FeatureStorage.Feature_Graph,
-        label_key: tuple[str, tuple],
-    ) -> list[torch.float]:
+        label_key: Union[tuple[str, tuple], Any],
+    ) -> torch.Tensor:
         """
         Impure function that splits off the target label from a feature graph
-        and returns them both separately in a tuple of shape
-        [A Feature_Graph, Number of Nodes]
+        and returns the target labels per node in a tensor of shape
+        [Number of Nodes]
 
         NOTE: This function should only be called once, since after it the label
         key is not present anymore, resulting in a KeyError.
