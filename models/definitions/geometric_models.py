@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.nn as pygnn
-from torch.nn import BatchNorm1d, Linear, ModuleList, MSELoss, Sequential
+from torch.nn import BatchNorm1d, ModuleList, MSELoss, Sequential
 from torch_geometric.nn import (BatchNorm, GATConv, GATv2Conv, GCNConv,
                                 GeneralConv, GINConv, Linear, SAGEConv,
                                 TopKPooling, TransformerConv, global_add_pool,
@@ -63,21 +63,34 @@ class SimpleGNN_EFG(GraphModel):
     """Implementation of a Graph Convolutional Network as in Adams et al. (2022)"""
 
     # SimpleGNN_EFG(64, 1): 0.4382 MAE (test), 6k params
-    def __init__(self, hidden_channels: int = 64, out_channels: int = 1):
+    def __init__(
+        self,
+        hidden_channels: int = 64,
+        out_channels: int = 1,
+        regression_target: bool = True,
+        graph_level_prediction: bool = True,
+    ):
         super().__init__()
         self.conv1 = GCNConv(-1, hidden_channels)
         self.conv2 = GCNConv(-1, hidden_channels)
-        self.pool1 = global_add_pool
-        self.out = Linear(-1, out_channels)
+        self.act1 = nn.ReLU()
+        self.act2 = nn.ReLU()
+        self.pool1 = lambda x, batch: x
+        if graph_level_prediction:
+            self.pool1 = pygnn.global_add_pool
+        self.lin_out = Linear(-1, out_channels)
+        self.probs_out = lambda x: x
+        if not regression_target:
+            self.probs_out = nn.Softmax(dim=1)
 
     def forward(self, x, edge_index, batch):
         x = self.conv1(x, edge_index)
-        x = x.relu()
+        x = self.act1(x)
         x = self.conv2(x, edge_index)
-        x = x.relu()
+        x = self.act2(x)
         x = self.pool1(x, batch)
-        x = self.out(x)
-        return x
+        x = self.lin_out(x)
+        return self.probs_out(x)
 
 
 # Model Configuration
@@ -157,7 +170,7 @@ class HigherOrderGNN_EFG(GraphModel):
         self,
         hidden_channels: int = 48,
         out_channels: int = 1,
-        classification_target: bool = False,
+        regression_target: bool = True,
         graph_level_prediction: bool = True,
     ):
         super().__init__()
@@ -170,7 +183,7 @@ class HigherOrderGNN_EFG(GraphModel):
             self.pool1 = pygnn.global_mean_pool
         self.lin_out = pygnn.Linear(-1, out_channels)
         self.probs_out = lambda x: x
-        if classification_target:
+        if not regression_target:
             self.probs_out = nn.Softmax(dim=1)
 
     def forward(self, x, edge_index, batch):
@@ -189,13 +202,21 @@ class HeteroHigherOrderGNN(GraphModel):
     # For HOEG: HeteroHigherOrderGNN(32, 1) yields 0.1849 MAE (test)
     # For OFG: HeteroHigherOrderGNN(64, 1) yields 0.7120 MAE (test)
 
-    def __init__(self, hidden_channels: int = 32, out_channels: int = 1):
+    def __init__(
+        self,
+        hidden_channels: int = 32,
+        out_channels: int = 1,
+        regression_target: bool = True,
+    ):
         super().__init__()
         self.conv1 = pygnn.GraphConv(-1, hidden_channels)
         self.conv2 = pygnn.GraphConv(-1, hidden_channels)
         self.act1 = nn.PReLU()
         self.act2 = nn.PReLU()
         self.lin_out = pygnn.Linear(-1, out_channels)
+        self.probs_out = lambda x: x
+        if not regression_target:
+            self.probs_out = nn.Softmax(dim=1)
 
     def forward(self, x, edge_index, batch=None):
         x = self.conv1(x, edge_index)
@@ -203,7 +224,7 @@ class HeteroHigherOrderGNN(GraphModel):
         x = self.conv2(x, edge_index)
         x = self.act2(x)
         x = self.lin_out(x)
-        return x
+        return self.probs_out(x)
 
 
 """
