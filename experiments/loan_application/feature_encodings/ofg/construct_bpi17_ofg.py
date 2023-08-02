@@ -2,7 +2,6 @@
 import pickle
 from typing import Any
 
-import hetero_graph_encoding_utils as utils
 import numpy as np
 import pandas as pd
 import pm4py
@@ -14,6 +13,9 @@ from pm4py.algo.transformation.ocel.features.objects import (
 )
 from sklearn.preprocessing import StandardScaler
 from torch_geometric.data import HeteroData
+
+# Custom local imports
+import utilities.hetero_data_utils as hetero_data_utils
 
 # Configuration variables
 ocel_in_file = "data/BPI17/source/BPI2017-CountEncoded.jsonocel"
@@ -72,11 +74,13 @@ data, feature_names = object_feature_factory.apply(
 # make pd.DataFrame from feature matrix
 object_features = pd.DataFrame(data, columns=feature_names)
 # NORMALIZE "@@object_lifecycle_duration" (JUST FOR TESTING)
-object_features.iloc[:, 1:2] = StandardScaler().fit_transform(
-    object_features.iloc[:, 1:2]
-)
+object_features.loc[:, "@@object_lifecycle_duration"] = StandardScaler().fit_transform(
+    object_features.loc[:, ["@@event_num_object_index", "@@object_lifecycle_duration"]]
+)[:, 1]
 # retrieve the mapper from ocel object id to the object index in the pd.DataFrame (e.g. 'Offer_148581083':1)
-oid_object_index_map = utils.get_index_map(ocel.objects, "ocel:oid", "object_index")
+oid_object_index_map = hetero_data_utils.get_index_map(
+    ocel.objects, "ocel:oid", "object_index"
+)
 
 # reset column name from object_index that was passed to the object-level feature matrix factory
 object_features = object_features.rename(
@@ -114,16 +118,18 @@ offer_attribute_feature_idxs = flatten(
 # subset application features, with correct columns
 application_features = application_features.iloc[:, application_attribute_feature_idxs]
 # create object_index to application_index mapper
-application_features = utils.add_object_type_index(application_features, "application")
-object_index_application_index_map = utils.get_index_map(
+application_features = hetero_data_utils.add_object_type_index(
+    application_features, "application"
+)
+object_index_application_index_map = hetero_data_utils.get_index_map(
     application_features, "object_index", "application_index"
 )
 
 # subset offer features, with correct columns
 offer_features = offer_features.iloc[:, offer_attribute_feature_idxs]
 # create object_index to offer_index mapper
-offer_features = utils.add_object_type_index(offer_features, "offer")
-object_index_offer_index_map = utils.get_index_map(
+offer_features = hetero_data_utils.add_object_type_index(offer_features, "offer")
+object_index_offer_index_map = hetero_data_utils.get_index_map(
     offer_features, "object_index", "offer_index"
 )
 
@@ -139,24 +145,26 @@ bpi17_edge_types = [
     ("application", "application"),
 ]
 # assign edge tuples to correct edge types
-bpi17_edges_per_edge_type = utils.split_on_edge_types(list(graph), bpi17_edge_types)
+bpi17_edges_per_edge_type = hetero_data_utils.split_on_edge_types(
+    list(graph), bpi17_edge_types
+)
 
 
 # create ocel object index to application node index (for HeteroData) mapper
-application_to_node_map = utils.object_map_to_node_map(
+application_to_node_map = hetero_data_utils.object_map_to_node_map(
     oid_object_index_map, object_index_application_index_map, "application"
 )
 # create ocel object index to offer node index (for HeteroData) mapper
-offer_to_node_map = utils.object_map_to_node_map(
+offer_to_node_map = hetero_data_utils.object_map_to_node_map(
     oid_object_index_map, object_index_offer_index_map, "offer"
 )
 
 
 # rename edges to have correct edge_index for HeteroData
-bpi17_edges_per_edge_type = utils.rename_edges_in_split_dict(
+bpi17_edges_per_edge_type = hetero_data_utils.rename_edges_in_split_dict(
     bpi17_edges_per_edge_type, application_to_node_map
 )
-bpi17_edges_per_edge_type = utils.rename_edges_in_split_dict(
+bpi17_edges_per_edge_type = hetero_data_utils.rename_edges_in_split_dict(
     bpi17_edges_per_edge_type, offer_to_node_map
 )
 
@@ -186,12 +194,16 @@ hetero_data["offer"].x = torch.tensor(
 hetero_data["application", "interacts", "application"].edge_index = torch.tensor(
     [[], []], dtype=torch.int64
 )
-hetero_data["application", "interacts", "offer"].edge_index = utils.to_torch_coo_format(
+hetero_data[
+    "application", "interacts", "offer"
+].edge_index = hetero_data_utils.to_torch_coo_format(
     bpi17_edges_per_edge_type[("application", "offer")]
 )
-hetero_data["offer", "interacts", "offer"].edge_index = utils.to_torch_coo_format(
+hetero_data[
+    "offer", "interacts", "offer"
+].edge_index = hetero_data_utils.to_torch_coo_format(
     bpi17_edges_per_edge_type[("offer", "offer")]
-    # utils.to_undirected(bpi17_edges_per_edge_type[("offer", "offer")])
+    # hetero_data_utils.to_undirected(bpi17_edges_per_edge_type[("offer", "offer")])
 )
 
 

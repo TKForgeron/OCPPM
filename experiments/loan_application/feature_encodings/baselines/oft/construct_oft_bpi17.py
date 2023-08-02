@@ -11,11 +11,11 @@ from pm4py.algo.transformation.ocel.features.objects import (
 )
 from sklearn.preprocessing import StandardScaler
 
-ocel_file = "../../../data/BPI17/source/BPI2017-Final.jsonocel"
+ocel_in_file = "../../../data/BPI17/source/BPI2017-Final.jsonocel"
 oft_out_file = "../../../data/BPI17/feature_encodings/OFT/application_features.csv"
 
 # load OCEL
-ocel = pm4py.read.read_ocel(ocel_file)
+ocel = pm4py.read.read_ocel(ocel_in_file)
 
 # encode boolean variables
 ocel.objects["event_Accepted"] = ocel.objects["event_Accepted"].replace(
