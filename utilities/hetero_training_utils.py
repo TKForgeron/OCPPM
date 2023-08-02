@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 # PyG
 import torch
-
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
 import torch_geometric.transforms as T
@@ -14,7 +13,7 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 # Custom imports
-from loan_application_experiment.models.geometric_models import GraphModel
+from models.definitions.geometric_models import GraphModel
 
 
 def train_one_epoch_hetero(
@@ -27,6 +26,7 @@ def train_one_epoch_hetero(
     tb_writer: SummaryWriter,
     device: torch.device,
     verbose: bool = True,
+    squeeze_required: bool = True,
 ) -> float:
     if verbose:
         print(f"EPOCH {epoch_index}:")
@@ -50,7 +50,10 @@ def train_one_epoch_hetero(
             inputs, edge_index=adjacency_matrix  # , batch=batch[target_node_type].batch
         )
         # Compute loss and gradients
-        loss = loss_fn(torch.squeeze(outputs[target_node_type]), labels)
+        if squeeze_required:
+            loss = loss_fn(torch.squeeze(outputs[target_node_type]), labels)
+        else:
+            loss = loss_fn(outputs[target_node_type], labels)
         loss.backward()
         # Adjust learnable weights
         optimizer.step()
@@ -79,6 +82,7 @@ def run_training_hetero(
     device: torch.device,
     model_path_base: str,
     verbose: bool = True,
+    squeeze_required: bool = True,
 ) -> str:
     if not os.path.exists(model_path_base):
         os.makedirs(model_path_base)
@@ -86,6 +90,7 @@ def run_training_hetero(
     writer = SummaryWriter(f"{model_path_base}/run")
     best_vloss = 1_000_000_000_000_000.0
     epochs_without_improvement = 0
+    model.to(device)
     for epoch in range(num_epochs):
         # Make sure gradient tracking is on, and do a pass over the data
         model.train(True)
@@ -99,6 +104,7 @@ def run_training_hetero(
             writer,
             device,
             verbose,
+            squeeze_required            
         )
 
         # We don't need gradients on to do reporting

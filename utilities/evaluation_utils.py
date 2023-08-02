@@ -1,5 +1,5 @@
 import numbers
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 import numpy as np
 import sklearn.metrics as metrics
@@ -8,6 +8,49 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 from models.definitions.geometric_models import GraphModel
+
+
+def _toggle_regression_classification(
+    regression=None, classification=None
+) -> tuple[bool, bool]:
+    """
+    Toggle function for regression and classification variables.
+
+    This function allows specifying either `regression` or `classification`, and it automatically sets the other
+    variable to the opposite value. Only one of the two variables can be True at a time, and both variables cannot be
+    False simultaneously.
+
+    Parameters:
+        regression (bool, optional): If True, indicates regression task. If None, the function will set it to the
+            opposite value of `classification` (default: None).
+        classification (bool, optional): If True, indicates classification task. If None, the function will set it to
+            the opposite value of `regression` (default: None).
+
+    Returns:
+        tuple: A boolean tuple containing the updated values of `regression` and `classification`.
+
+    Raises:
+        ValueError: If both `regression` and `classification` are set to None.
+        ValueError: If both `regression` and `classification` are specified, and numerically evaluated they don't add up to 1.
+    """
+    if regression is None and classification is None:
+        raise ValueError(
+            "At least one of regression and classification should be specified."
+        )
+
+    if (regression is not None and classification is not None) and (
+        regression + classification != 1
+    ):
+        raise ValueError(
+            "Only one of regression and classification should be specified."
+        )
+
+    if regression is None:
+        regression = not classification
+    else:
+        classification = not regression
+
+    return bool(regression), bool(classification)
 
 
 def get_json_serializable_dict(d):
@@ -30,13 +73,12 @@ def get_json_serializable_dict(d):
 
 
 def get_evaluation(
-    y_true, y_preds, regression: bool = False, classification: bool = False
+    y_true, y_preds, regression=None, classification=None
 ) -> dict[str, dict[str, Any]]:
-    if (regression + classification) != 1:
-        raise Exception(
-            f"Set one and only one of arguments: `regression` or `classification` to `True`."
-        )
-    elif regression:
+    regression, classification = _toggle_regression_classification(
+        regression, classification
+    )
+    if regression:
         return get_regression_evaluation(y_true, y_preds)
     else:
         return get_classification_evaluation(y_true, y_preds)
@@ -68,7 +110,7 @@ def get_preds_from_probs(lst) -> int:
     return max(range(len(lst)), key=lst.__getitem__)
 
 
-def evaluate_model(
+def evaluate_torch_model(
     model: GraphModel,
     dataloader: DataLoader,
     evaluation_reporter: Callable[
@@ -123,45 +165,39 @@ def evaluate_model(
 
 def get_best_model_evaluation(
     model_state_dict_path: str,
-    train_loader: DataLoader,
-    val_loader: DataLoader,
-    test_loader: DataLoader,
     model: GraphModel,
     evaluation_reporter: Callable[
         [torch.Tensor, torch.Tensor, bool, bool], dict[str, dict[str, Any]]
     ],
-    classification: bool,
-    regression: bool,
+    regression: Union[None, bool, int] = None,
+    classification: Union[None, bool, int] = None,
+    train_loader: Union[DataLoader, None] = None,
+    val_loader: Union[DataLoader, None] = None,
+    test_loader: Union[DataLoader, None] = None,
     verbose: bool = True,
 ) -> dict[str, dict[str, Any]]:
+    regression, classification = _toggle_regression_classification(
+        regression, classification
+    )  # determine type of evaluation
     best_state_dict = torch.load(model_state_dict_path)  # , map_location=device
-
     model.load_state_dict(best_state_dict)
     model.eval()
-    evaluation = {
-        f"Train": evaluate_model(
-            model=model,
-            dataloader=train_loader,
-            evaluation_reporter=evaluation_reporter,
-            classification=classification,
-            regression=regression,
-            verbose=verbose,
-        ),
-        f"Validation": evaluate_model(
-            model=model,
-            dataloader=val_loader,
-            evaluation_reporter=evaluation_reporter,
-            classification=classification,
-            regression=regression,
-            verbose=verbose,
-        ),
-        f"Test": evaluate_model(
-            model=model,
-            dataloader=test_loader,
-            evaluation_reporter=evaluation_reporter,
-            classification=classification,
-            regression=regression,
-            verbose=verbose,
-        ),
+    kwargs = {
+        "model": model,
+        "evaluation_reporter": evaluation_reporter,
+        "classification": classification,
+        "regression": regression,
+        "verbose": verbose,
     }
+    evaluation = {}
+    if train_loader:
+        evaluation |= {
+            f"Train": evaluate_torch_model(dataloader=train_loader, **kwargs)
+        }
+    if val_loader:
+        evaluation |= {
+            f"Validation": evaluate_torch_model(dataloader=val_loader, **kwargs)
+        }
+    if test_loader:
+        evaluation |= {f"Test": evaluate_torch_model(dataloader=test_loader, **kwargs)}
     return evaluation

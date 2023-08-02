@@ -4,6 +4,7 @@ from typing import Any, Callable
 
 # PyG
 import torch
+
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
 from torch.utils.tensorboard.writer import SummaryWriter

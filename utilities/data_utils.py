@@ -3,19 +3,20 @@ from typing import Any, Callable, Union
 
 # PyG
 import torch
+
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 # Custom imports
-from loan_application_experiment.feature_encodings.efg.efg import EFG
-from loan_application_experiment.feature_encodings.efg.efg_sg import EFG_SG
+from experiments.efg import EFG
+from experiments.efg_sg import EFG_SG
 from models.definitions.geometric_models import GraphModel
 
 
 def load_datasets(
-    dataset_class: Union[EFG, EFG_SG],
+    dataset_class: Union[type[EFG], type[EFG_SG]],
     storage_path: str,
     split_feature_storage_file: str,
     target_label: tuple[str, tuple],
@@ -24,11 +25,11 @@ def load_datasets(
     target_dtype: torch.dtype,
     subgraph_size: int,
     transform=None,
-    train: bool = None,
-    val: bool = None,
-    test: bool = None,
+    train: Union[bool, None] = None,
+    val: Union[bool, None] = None,
+    test: Union[bool, None] = None,
     skip_cache: bool = False,
-) -> Union[list[EFG],list[EFG_SG]]:
+) -> Union[list[EFG], list[EFG_SG]]:
     kwargs = {
         "features_dtype": features_dtype,
         "target_dtype": target_dtype,
@@ -75,9 +76,9 @@ def load_datasets(
 
 
 def print_dataset_summaries(
-    ds_train: EFG_SG or EFG = None,
-    ds_val: EFG_SG or EFG = None,
-    ds_test: EFG_SG or EFG = None,
+    ds_train: Union[EFG, EFG_SG, None] = None,
+    ds_val: Union[EFG, EFG_SG, None] = None,
+    ds_test: Union[EFG, EFG_SG, None] = None,
 ) -> None:
     if ds_train:
         print("Train set")
@@ -92,14 +93,14 @@ def print_dataset_summaries(
 
 def prepare_dataloaders(
     batch_size: int,
-    ds_train: EFG_SG or EFG = None,
-    ds_val: EFG_SG or EFG = None,
-    ds_test: EFG_SG or EFG = None,
+    ds_train: Union[EFG, EFG_SG, None] = None,
+    ds_val: Union[EFG, EFG_SG, None] = None,
+    ds_test: Union[EFG, EFG_SG, None] = None,
     shuffle: bool = True,
     pin_memory: bool = True,
     num_workers: int = 4,
-    seed_worker: Callable[[int], None] = None,
-    generator: torch.Generator = None,
+    seed_worker: Union[Callable[[int], None], None] = None,
+    generator: Union[torch.Generator, None] = None,
 ) -> list[DataLoader]:
     dataloaders = []
     if ds_train:
