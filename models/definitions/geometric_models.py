@@ -130,6 +130,33 @@ class AGNN_EFG(GraphModel):
         return x
 
 
+class SimpleHigherOrderGNN_EFG(GraphModel):
+    def __init__(
+        self,
+        hidden_channels: int = 64,
+        out_channels: int = 1,
+        regression_target: bool = True,
+        graph_level_prediction: bool = True,
+    ):
+        super().__init__()
+        self.conv1 = pygnn.GraphConv(-1, hidden_channels)
+        self.act1 = nn.PReLU()
+        self.pool1 = lambda x, batch: x
+        if graph_level_prediction:
+            self.pool1 = pygnn.global_mean_pool
+        self.lin_out = pygnn.Linear(-1, out_channels)
+        self.probs_out = lambda x: x
+        if not regression_target:
+            self.probs_out = nn.Softmax(dim=1)
+
+    def forward(self, x, edge_index, batch):
+        x = self.conv1(x, edge_index)
+        x = self.act1(x)
+        x = self.pool1(x, batch)
+        x = self.lin_out(x)
+        return self.probs_out(x)
+
+
 class HigherOrderGNN_EFG(GraphModel):
     """
     Implementation of a Higher Order Graph Neural Network for EFG,
@@ -180,7 +207,7 @@ class HigherOrderGNN_EFG(GraphModel):
         self.act2 = nn.PReLU()
         self.pool1 = lambda x, batch: x
         if graph_level_prediction:
-            self.pool1 = pygnn.global_mean_pool
+            self.pool1 = pygnn.global_add_pool
         self.lin_out = pygnn.Linear(-1, out_channels)
         self.probs_out = lambda x: x
         if not regression_target:
@@ -206,26 +233,29 @@ class HeteroHigherOrderGNN(GraphModel):
         self,
         hidden_channels: int = 32,
         out_channels: int = 1,
-        regression_target: bool = True,
+        squeeze: bool = False,
+        pre_forward_view:bool=False
     ):
         super().__init__()
+        self.squeeze = squeeze
+        self.pre_forward_view = pre_forward_view
+
         self.conv1 = pygnn.GraphConv(-1, hidden_channels)
         self.conv2 = pygnn.GraphConv(-1, hidden_channels)
         self.act1 = nn.PReLU()
         self.act2 = nn.PReLU()
         self.lin_out = pygnn.Linear(-1, out_channels)
-        self.probs_out = lambda x: x
-        if not regression_target:
-            self.probs_out = nn.Softmax(dim=1)
+
 
     def forward(self, x, edge_index, batch=None):
+        x = x.view(1,-1) if self.pre_forward_view else x
         x = self.conv1(x, edge_index)
         x = self.act1(x)
         x = self.conv2(x, edge_index)
         x = self.act2(x)
         x = self.lin_out(x)
-        return self.probs_out(x)
-
+        x = torch.squeeze(x) if self.squeeze else x
+        return x
 
 """
 What has been tried:

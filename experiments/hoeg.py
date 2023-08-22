@@ -1,4 +1,4 @@
-import logging
+# import logging
 import os
 import pickle
 from collections import defaultdict
@@ -14,13 +14,13 @@ from torch_geometric.data import Dataset, HeteroData
 
 from experiments.efg import EFG
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    filename="logging/debug.log",
-)
-logging.debug("-" * 32 + ' hoeg.py ' + "-" * 32)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     format="%(asctime)s %(levelname)s %(message)s",
+#     datefmt="%Y-%m-%d %H:%M:%S",
+#     filename="logging/DEBUG.log",
+# )
+# logging.debug("-" * 32 + " hoeg.py " + "-" * 32)
 
 
 class HOEG(EFG):
@@ -43,7 +43,7 @@ class HOEG(EFG):
         event_node_label_key: Union[str, tuple[str, tuple]],
         object_nodes_label_key: str,
         edge_types: list[tuple[str, str, str]],
-        object_node_types: list[str] ,
+        object_node_types: list[str],
         event_node_type: str = "event",
         graph_level_target: bool = False,
         target_dtype: torch.dtype = torch.float32,
@@ -254,8 +254,12 @@ class HOEG(EFG):
         for object_node_type in object_node_types:
             if object_node_type not in node_features:
                 # continue # if object type not related to current process execution graph, skip loop and try next object type
-                hetero_data[object_node_type].x = torch.tensor([],dtype=self.features_dtype)
-                hetero_data[object_node_type].y = torch.tensor([],dtype=self.target_dtype)
+                hetero_data[object_node_type].x = torch.tensor(
+                    [], dtype=self.features_dtype
+                )
+                hetero_data[object_node_type].y = torch.tensor(
+                    [], dtype=self.target_dtype
+                )
             else:
                 hetero_data[object_node_type].x = node_features[object_node_type]["x"]
                 hetero_data[object_node_type].y = node_features[object_node_type]["y"]
@@ -352,10 +356,10 @@ class HOEG(EFG):
         for object_node_type in object_node_types:
             if object_node_type in object_id_to_feature_matrix_index:
                 if type(object_id_to_feature_matrix_index[object_node_type][0]) != int:
-                    print(f"in self._get_node_features()")
-                    print(f"fg.pexec_id: {self.DEBUG_fg_idx}")
-                    print(object_id_to_feature_matrix_index[object_node_type])
-                    continue # cs BUG: somehow 148 objects are prepared incorrectly in `object_id_to_feature_matrix_index`
+                    # logging.debug(f"in self._get_node_features()")
+                    # logging.debug(f"fg.pexec_id: {self.DEBUG_fg_idx}")
+                    # logging.debug(object_id_to_feature_matrix_index[object_node_type])
+                    continue  # cs BUG: somehow 148 objects are prepared incorrectly in `object_id_to_feature_matrix_index`
                 object_node_feature_matrix = (
                     object_feature_matrices[object_node_type]
                     .drop(
@@ -391,10 +395,12 @@ class HOEG(EFG):
         for edge_type in edge_types:
             if not event_node_type in edge_type:
                 raise ValueError(
-                    f"UNKNOWN EDGE TYPE GIVEN, at least one of the node types in the given edge type should be {event_node_type} (we don't directly connect objects with objects)"
+                    f"UNKNOWN EDGE TYPE GIVEN, at least one of the node types in the given edge type should be '{event_node_type}' (we don't directly connect objects with objects)"
                 )
             else:
-                event_node_index_map = self.__get_event_node_index_mapping(feature_graph)
+                event_node_index_map = self.__get_event_node_index_mapping(
+                    feature_graph
+                )
                 if edge_type.count(event_node_type) == 2:
                     # Map event_id to node_index (counting from 0) using a dictionary
                     # Actually map event_id to node_index
@@ -408,7 +414,7 @@ class HOEG(EFG):
                         edge_type[::-1].index(event_node_type)
                     ]  # determine which object node type this edge concerns
                     if not object_node_type in object_node_map:
-                        continue # if object type not related to current process execution graph, skip loop and try next object type
+                        continue  # if object type not related to current process execution graph, skip loop and try next object type
                     edge_index = self.__get_edge_index_for_edge_type(
                         feature_graph=feature_graph,
                         edge_type=edge_type,
@@ -420,7 +426,6 @@ class HOEG(EFG):
         # use: event_node_index_map for mapping event_id to id in heterodata['event']
 
         return edge_index_dict
-
 
     def __set_to_split_dict(
         self, unique_objects: set[tuple[str, str]]
@@ -467,11 +472,13 @@ class HOEG(EFG):
             if edge[1] in object_node_map:
                 edge_index.append((event_node_map[edge[0]], object_node_map[edge[1]]))
             else:
-                print(f"in self.__get_edge_index_for_edge_type()")
-                print(f"fg.pexec_id: {self.DEBUG_fg_idx}")
-                print(edge)
-                print(object_node_map)
-                edge_index.append((event_node_map[edge[0]], 0)) # cs BUG: sometimes there is a mismatch between edge[1] and keys in `object_node_map`
+                # logging.debug(f"in self.__get_edge_index_for_edge_type()")
+                # logging.debug(f"fg.pexec_id: {self.DEBUG_fg_idx}")
+                # logging.debug(edge)
+                # logging.debug(object_node_map)
+                edge_index.append(
+                    (event_node_map[edge[0]], 0)
+                )  # cs BUG: sometimes there is a mismatch between edge[1] and keys in `object_node_map`
         # edge_index = [
         #     (event_node_map[edge[0]], object_node_map[edge[1]]) for edge in edge_list
         # ]
@@ -510,7 +517,7 @@ class HOEG(EFG):
 
     def __get_graph_filename(self, graph_idx: int) -> str:
         filename = f"{self._base_filename}_{graph_idx}.{self._file_extension}"
-        logging.debug(filename)
+        # logging.debug(filename)
         return filename
 
     def len(self) -> int:
@@ -524,5 +531,5 @@ class HOEG(EFG):
         data = torch.load(
             os.path.join(self.processed_dir, self.__get_graph_filename(graph_idx))
         )
-        logging.debug(data)
+        # logging.debug(data)
         return data

@@ -25,10 +25,7 @@ import utilities.hetero_training_utils as hetero_training_utils
 import utilities.torch_utils as torch_utils
 
 # Custom imports
-from experiment1_loan_application.models.geometric_models import (
-    GraphModel,
-    HeteroHigherOrderGNN,
-)
+from models.definitions.geometric_models import GraphModel, HeteroHigherOrderGNN
 
 # Print system info
 torch_utils.print_system_info()

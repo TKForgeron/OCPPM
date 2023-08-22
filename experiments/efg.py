@@ -1,13 +1,21 @@
 # import pandas as pd
+import logging
 import os
 import pickle
 from typing import Any, Union
 
 import torch
-from ocpa.algo.predictive_monitoring.obj import \
-    Feature_Storage as FeatureStorage
+from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
 from torch_geometric.data import Data, Dataset
 from tqdm import tqdm
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    filename="logging/DEBUG.log",
+)
+logging.debug("-" * 32 + " hoeg.py " + "-" * 32)
 
 
 class EFG(Dataset):
