@@ -1,22 +1,22 @@
 # %%
+import os
+
+go_up_n_directories = lambda path, n: os.path.abspath(
+    os.path.join(*([os.path.dirname(path)] + [".."] * n))
+)
+os.chdir(go_up_n_directories(os.getcwd(), 3))  # run once (otherwise restart kernel)
+print(os.getcwd())
+
+# %%
 # DEPENDENCIES
 # Python native
 import functools
 import json
 import os
-
-os.chdir("/home/tim/Development/OCPPM/")
-
-import pickle
-import random
-from copy import copy
 from datetime import datetime
 from statistics import median as median
-from sys import platform
-from typing import Any, Callable
 
 # Data handling
-import numpy as np
 import ocpa.algo.predictive_monitoring.factory as feature_factory
 # PyG
 import torch
@@ -27,28 +27,16 @@ import torch.optim as O
 import torch.utils.tensorboard
 import torch_geometric.nn as pygnn
 import torch_geometric.transforms as T
-# Object centric process mining
-from ocpa.algo.predictive_monitoring.obj import \
-    Feature_Storage as FeatureStorage
-# # Simple machine learning models, procedure tools, and evaluation metrics
-# from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from torch import tensor
-from torch.utils.tensorboard.writer import SummaryWriter
-from torch_geometric.loader import DataLoader
-from tqdm import tqdm
+from torch_geometric.data import HeteroData
 
-import utilities.evaluation_utils as evaluation_utils
-import utilities.hetero_data_utils as hetero_data_utils
-import utilities.hetero_evaluation_utils as hetero_evaluation_utils
-import utilities.hetero_training_utils as hetero_training_utils
 import utilities.torch_utils
-# Custom imports
-# from experiments.loan_application.feature_encodings.hoeg.hoeg import HOEG
 from experiments.hoeg import HOEG
-# from importing_ocel import build_feature_storage, load_ocel, pickle_feature_storage
+# Custom imports
 from models.definitions.geometric_models import (GraphModel,
                                                  HeteroHigherOrderGNN)
+from utilities import (evaluation_utils, hetero_data_utils,
+                       hetero_evaluation_utils, hetero_experiment_utils,
+                       hetero_training_utils)
 
 # Print system info
 utilities.torch_utils.print_system_info()
@@ -76,6 +64,7 @@ bpi17_hoeg_config = {
     "RANDOM_SEED": 42,
     "EPOCHS": 32,
     "early_stopping": 8,
+    "hidden_dim": 32,
     "optimizer": O.Adam,
     "optimizer_settings": {
         "lr": 0.001,
@@ -87,10 +76,13 @@ bpi17_hoeg_config = {
     "loss_fn": torch.nn.L1Loss(),
     "verbose": True,
     "skip_cache": False,
+    "track_time": True,
     "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    "squeeze": True,
 }
 
 # CONFIGURATION ADAPTATIONS may be set here
+# bpi17_hoeg_config["EPOCHS"] = 1
 # bpi17_hoeg_config["early_stopping"] = 4
 # bpi17_hoeg_config["skip_cache"] = True
 
@@ -98,9 +90,12 @@ bpi17_hoeg_config = {
 # %%
 # DATA PREPARATION
 transformations = [
-    T.ToUndirected(),  # Convert the graph to an undirected graph
-    # T.AddSelfLoops(),  # Add self-loops to the graph
-    # T.NormalizeFeatures(),  # Normalize node features of the graph
+    hetero_data_utils.ToUndirected(
+        exclude_edge_types=[("event", "follows", "event")]
+    ),  # Convert heterogeneous graphs to undirected graphs, but exclude event-event relations
+    # T.ToUndirected(),  # Convert the graph to an undirected graph   # this was in HOEG.py in v0.18
+    T.AddSelfLoops(),  # Add self-loops to the graph                # this was in HOEG.py in v0.18
+    T.NormalizeFeatures(),  # Normalize node features of the graph  # this was in HOEG.py in v0.18
 ]
 # Get data and dataloaders
 ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
@@ -108,10 +103,10 @@ ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
     bpi17_hoeg_config["SPLIT_FEATURE_STORAGE_FILE"],
     bpi17_hoeg_config["OBJECTS_DATA_DICT"],
     event_node_label_key=bpi17_hoeg_config["events_target_label"],
-    object_nodes_label_key=bpi17_hoeg_config['objects_target_label'],
-    edge_types=bpi17_hoeg_config['meta_data'][1],
-    object_node_types=bpi17_hoeg_config['object_types'],
-    graph_level_target = False,
+    object_nodes_label_key=bpi17_hoeg_config["objects_target_label"],
+    edge_types=bpi17_hoeg_config["meta_data"][1],
+    object_node_types=bpi17_hoeg_config["object_types"],
+    graph_level_target=False,
     transform=T.Compose(transformations),
     train=True,
     val=True,
@@ -119,7 +114,8 @@ ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
     skip_cache=bpi17_hoeg_config["skip_cache"],
 )
 bpi17_hoeg_config["meta_data"] = ds_val[0].metadata()
-# print_hetero_dataset_summaries(ds_train, ds_val,ds_test)
+# hetero_data_utils.print_hetero_dataset_summaries(ds_train, ds_val,ds_test)
+# %%
 (
     train_loader,
     val_loader,
@@ -129,6 +125,7 @@ bpi17_hoeg_config["meta_data"] = ds_val[0].metadata()
     ds_train=ds_train,
     ds_val=ds_val,
     ds_test=ds_test,
+    num_workers=3,
     seed_worker=functools.partial(
         utilities.torch_utils.seed_worker, state=bpi17_hoeg_config["RANDOM_SEED"]
     ),
@@ -137,81 +134,22 @@ bpi17_hoeg_config["meta_data"] = ds_val[0].metadata()
 
 
 # %%
-# MODEL INITIATION
-model = HeteroHigherOrderGNN(32, 1)
-model = pygnn.to_hetero(model, bpi17_hoeg_config["meta_data"])
+# FINAL HYPERPARAMETER TUNING
+bpi17_hoeg_config["verbose"] = False
+bpi17_hoeg_config["model_output_path"] = "models/BPI17/hoeg/exp_v2"
 
-# Print summary of data and model
-if bpi17_hoeg_config["verbose"]:
-    print(model)
-    with torch.no_grad():  # Initialize lazy modules, s.t. we can count its parameters.
-        batch = next(iter(train_loader))
-        batch.to(bpi17_hoeg_config["device"])
-        model.to(bpi17_hoeg_config["device"])
-        out = model(batch.x_dict, batch.edge_index_dict)
-        print(f"Number of parameters: {utilities.torch_utils.count_parameters(model)}")
-
-# %%
-# MODEL TRAINING
-print("Training started, progress available in Tensorboard")
-torch.cuda.empty_cache()
-
-timestamp = datetime.now().strftime("%Y%m%d_%Hh%Mm")
-model_path_base = f"{bpi17_hoeg_config['model_output_path']}/{str(model).split('(')[0]}_{timestamp}"
-
-best_state_dict_path = hetero_training_utils.run_training_hetero(
-    target_node_type=bpi17_hoeg_config["target_node_type"],
-    num_epochs=bpi17_hoeg_config["EPOCHS"],
-    model=model,
-    train_loader=train_loader,
-    validation_loader=val_loader,
-    optimizer=bpi17_hoeg_config["optimizer"](
-        model.parameters(), **bpi17_hoeg_config["optimizer_settings"]
-    ),
-    loss_fn=bpi17_hoeg_config["loss_fn"],
-    early_stopping_criterion=bpi17_hoeg_config["early_stopping"],
-    model_path_base=model_path_base,
-    device=bpi17_hoeg_config["device"],
-    verbose=False,
-)
-
-# Write experiment settings as JSON into model path (of the model we've just trained)
-with open(os.path.join(model_path_base, "experiment_settings.json"), "w") as file_path:
-    json.dump(evaluation_utils.get_json_serializable_dict(bpi17_hoeg_config), file_path)
-
-# %%
-# MODEL EVALUATION
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230718_16h54m"  # 0.3902 test mae | 21k params (I DO NOT BELIEVE IT)
-state_dict_path = (
-    f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230718_17h02m"  # 0.4182 test mae | 21k params
-)
-state_dict_path = (
-    f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230718_17h07m"  # 0.4354 test mae | 21k params
-)
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230719_18h06m"  # 0.2251 test mae | HeteroGraphConvNet(32, 1) | 21k params (reloading model, re-evaluating: same result)
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230719_18h52m"  # 0.2185 test mae | HeteroGraphConvNet(32, 1) | 21k params (exact re-run of previous model)
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230720_14h56m/state_dict_epoch0.pt"  # 0.3441 test mae | HeteroGraphConvNet(27, 1) | 21k params (corrected for object_lifecycle_duration in X of object nodes)
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230720_14h05m/state_dict_epoch2.pt"  # 0.2287 test mae | HeteroGraphConvNet(32, 1) | 21k params (corrected for object_lifecycle_duration in X of object nodes)
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230720_14h20m/state_dict_epoch3.pt"  # 0.1919 test mae | (exact re-run of previous model)
-state_dict_path = f"{bpi17_hoeg_config['model_output_path']}/GraphModule_20230724_12h25m/state_dict_epoch3.pt"  # 0.1849 test mae | // best so far! (exact re-run of previous model)
-
-# Get MAE results
-evaluation_dict = hetero_evaluation_utils.evaluate_best_model(
-    target_node_type=bpi17_hoeg_config["target_node_type"],
-    model_state_dict_path=best_state_dict_path,
-    train_loader=train_loader,
-    val_loader=val_loader,
-    test_loader=test_loader,
-    model=model,
-    metric=bpi17_hoeg_config['loss_fn'],
-    device=bpi17_hoeg_config["device"],
-    verbose=bpi17_hoeg_config["verbose"],
-)
-
-# Store model results as JSON into model path
-with open(os.path.join(model_path_base, "evaluation_report.json"), "w") as file_path:
-    json.dump(evaluation_utils.get_json_serializable_dict(evaluation_dict), file_path)
-
-# Print MAE results
-print(model_path_base)
-print(evaluation_dict)
+lr_range = [0.01, 0.001]
+hidden_dim_range = [8, 16, 24, 32, 48, 64, 128, 256]
+# lr_range = [0.001]
+# hidden_dim_range = [128, 256]
+for lr in lr_range:
+    for hidden_dim in hidden_dim_range:
+        hetero_experiment_utils.run_hoeg_experiment_configuration(
+            HeteroHigherOrderGNN,
+            lr=lr,
+            hidden_dim=hidden_dim,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            hoeg_config=bpi17_hoeg_config,
+        )
