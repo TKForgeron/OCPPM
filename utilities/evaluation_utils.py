@@ -1,4 +1,5 @@
 import numbers
+import time
 from typing import Any, Callable, Union
 
 import numpy as np
@@ -73,18 +74,18 @@ def get_json_serializable_dict(d):
 
 
 def get_evaluation(
-    y_true, y_preds, regression=None, classification=None
+    y_true, y_preds, regression=None, classification=None, time=None
 ) -> dict[str, dict[str, Any]]:
     regression, classification = _toggle_regression_classification(
         regression, classification
     )
     if regression:
-        return get_regression_evaluation(y_true, y_preds)
+        return get_regression_evaluation(y_true, y_preds, time)
     else:
-        return get_classification_evaluation(y_true, y_preds)
+        return get_classification_evaluation(y_true, y_preds, time)
 
 
-def get_regression_evaluation(y_true, y_preds) -> dict[str, dict[str, Any]]:
+def get_regression_evaluation(y_true, y_preds, time=None) -> dict[str, dict[str, Any]]:
     eval_results = {"report": {}}
     eval_results["report"]["MSE"] = metrics.mean_squared_error(y_true, y_preds)
     eval_results["report"]["MAE"] = metrics.mean_absolute_error(y_true, y_preds)
@@ -92,10 +93,14 @@ def get_regression_evaluation(y_true, y_preds) -> dict[str, dict[str, Any]]:
         y_true, y_preds
     )
     eval_results["report"]["R^2"] = metrics.r2_score(y_true, y_preds)
+    if time:
+        eval_results["report"]["prediction_time"] = time
     return eval_results
 
 
-def get_classification_evaluation(y_true, y_preds) -> dict[str, dict[str, Any]]:
+def get_classification_evaluation(
+    y_true, y_preds, time=None
+) -> dict[str, dict[str, Any]]:
     eval_results = dict()
     eval_results["report"] = metrics.classification_report(
         y_true, y_preds, output_dict=True
@@ -103,6 +108,8 @@ def get_classification_evaluation(y_true, y_preds) -> dict[str, dict[str, Any]]:
     eval_results["report"]["confusion_matrix"] = metrics.confusion_matrix(
         y_true, y_preds
     )
+    if time:
+        eval_results["report"]["prediction_time"] = time
     return eval_results
 
 
@@ -114,13 +121,16 @@ def evaluate_torch_model(
     model: GraphModel,
     dataloader: DataLoader,
     evaluation_reporter: Callable[
-        [torch.Tensor, torch.Tensor, bool, bool], dict[str, dict[str, Any]]
+        [torch.Tensor, torch.Tensor, bool, bool, float], dict[str, dict[str, Any]]
     ],
     classification: bool,
     regression: bool,
     verbose: bool = False,
+    track_time: bool = False,
 ) -> dict[str, dict[str, Any]]:
     device = torch.device("cpu")
+    start_time = time.time()
+    elapsed_time = 0
 
     def _eval_batch(batch, model):
         batch_inputs, batch_adjacency_matrix, batch_labels = (
@@ -146,6 +156,8 @@ def evaluate_torch_model(
             y_preds = torch.cat((y_preds, batch_y_preds))
             y_true = torch.cat((y_true, batch_y_true))
         y_preds = torch.squeeze(y_preds)
+        if track_time:
+            elapsed_time = time.time() - start_time
     if classification:
         # yield predicted class probabilities,
         # and convert to hard predictions before passing to the `evaluation_reporter`
@@ -154,12 +166,16 @@ def evaluate_torch_model(
             np.apply_along_axis(get_preds_from_probs, axis=1, arr=y_probs)
         )
         return evaluation_reporter(
-            y_preds, y_true.to(device), regression, classification
+            y_preds, y_true.to(device), regression, classification, elapsed_time
         )
     else:
         # assuming user wants a regression report
         return evaluation_reporter(
-            y_preds.to(device), y_true.to(device), regression, classification
+            y_preds.to(device),
+            y_true.to(device),
+            regression,
+            classification,
+            elapsed_time,
         )
 
 
@@ -175,6 +191,7 @@ def get_best_model_evaluation(
     val_loader: Union[DataLoader, None] = None,
     test_loader: Union[DataLoader, None] = None,
     verbose: bool = True,
+    track_time: bool = False,
 ) -> dict[str, dict[str, Any]]:
     regression, classification = _toggle_regression_classification(
         regression, classification
@@ -188,6 +205,7 @@ def get_best_model_evaluation(
         "classification": classification,
         "regression": regression,
         "verbose": verbose,
+        "track_time": track_time,
     }
     evaluation = {}
     if train_loader:

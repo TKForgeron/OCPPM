@@ -5,14 +5,14 @@ from typing import Any, Callable
 
 # PyG
 import torch
+
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
-import torch_geometric.transforms as T
 from torch.utils.tensorboard.writer import SummaryWriter
 from torch_geometric.loader import DataLoader
-from tqdm import tqdm
 
 # Custom imports
+import utilities.training_utils as training_utils
 from models.definitions.geometric_models import GraphModel
 
 
@@ -34,7 +34,9 @@ def train_one_epoch_hetero(
     # Enumerate over the data
     running_loss = 0.0
     last_loss = 0
-    for i, batch in enumerate(tqdm(train_loader, miniters=25)):
+    for i, batch in training_utils._custom_verbosity_enumerate(
+        train_loader, verbose, miniters=25
+    ):
         # Use GPU
         batch.to(device)
         # Every data instance is an input + label pair
@@ -104,7 +106,7 @@ def run_training_hetero(
             writer,
             device,
             verbose,
-            squeeze_required            
+            squeeze_required,
         )
 
         # We don't need gradients on to do reporting
@@ -145,6 +147,7 @@ def run_training_hetero(
             epochs_without_improvement += 1
 
         if epochs_without_improvement >= early_stopping_criterion:
-            print(f"Early stopping after {epoch+1} epochs.")
+            if verbose:
+                print(f"Early stopping after {epoch+1} epochs.")
             break
     return best_model_state_dict_path

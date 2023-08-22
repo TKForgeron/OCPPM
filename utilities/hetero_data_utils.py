@@ -12,14 +12,123 @@ import pandas as pd
 import torch
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
+import torch_geometric.transforms.to_undirected as T
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.loader import DataLoader, NeighborLoader
 
 # Custom imports
 from experiments.hoeg import HOEG
 
-
 # %%
+
+
+class ToUndirected(T.BaseTransform):
+    """
+    This is a custom tranform that can be applied to
+    PyG's Data and HeteroData objects to make them
+    undirected graphs.
+
+    It is different from PyG's ToUndirected in that
+    here we can specify edge types to exclude from
+    tranformations.
+    """
+
+    def __init__(
+        self,
+        exclude_edge_types: list[tuple[str, str, str]]=[],
+        reduce: str = "add",
+        merge: bool = True,
+    ):
+        self.exclude_edge_types = exclude_edge_types
+        self.reduce = reduce
+        self.merge = merge
+
+    def forward(
+        self,
+        data: Union[Data, HeteroData],
+    ) -> Union[Data, HeteroData]:
+        for store in data.edge_stores:
+            if store._key in self.exclude_edge_types:
+                continue
+            if "edge_index" not in store:
+                continue
+
+            nnz = store.edge_index.size(1)
+
+            if isinstance(data, HeteroData) and (
+                store.is_bipartite() or not self.merge
+            ):
+                src, rel, dst = store._key
+
+                # Just reverse the connectivity and add edge attributes:
+                row, col = store.edge_index
+                rev_edge_index = torch.stack([col, row], dim=0)
+
+                inv_store = data[dst, f"rev_{rel}", src]
+                inv_store.edge_index = rev_edge_index
+                for key, value in store.items():
+                    if key == "edge_index":
+                        continue
+                    if isinstance(value, torch.Tensor) and value.size(0) == nnz:
+                        inv_store[key] = value
+
+            else:
+                keys, values = [], []
+                for key, value in store.items():
+                    if key == "edge_index":
+                        continue
+
+                    if store.is_edge_attr(key):
+                        keys.append(key)
+                        values.append(value)
+
+                store.edge_index, values = T.to_undirected(
+                    store.edge_index, values, reduce=self.reduce
+                )
+
+                for key, value in zip(keys, values):
+                    store[key] = value
+
+        return data
+
+class FillEmptyNodeTypes(T.BaseTransform):
+    def __init__(
+        self,
+        fill_value: float = 1,
+        fill_value_dtype=torch.float,
+    ):
+        self.fill_value = fill_value
+        self.fill_value_dtype = fill_value_dtype
+
+    def forward(
+        self,
+        data: Union[Data, HeteroData],
+    ) -> Union[Data, HeteroData]:
+        for store in data.stores:
+            for key, value in store.items('x'):
+                # fill empty data store with `self.fill_value`
+                if value.shape[0] == 0:
+                    store[key] = torch.tensor([[self.fill_value]],dtype=self.fill_value_dtype)
+        return data
+    
+class NormalizeFeatures(T.BaseTransform):
+    def __init__(self, attrs: list[str] = ["x"]):
+        self.attrs = attrs
+
+    def __call__(
+        self,
+        data: Union[Data, HeteroData],
+    ) -> Union[Data, HeteroData]:
+        for store in data.stores:
+            for key, value in store.items(*self.attrs):
+                if value.shape[0] != 0:
+                    value = value - value.min()
+                    value.div_(value.sum(dim=-1, keepdim=True).clamp_(min=1.))
+                    store[key] = value
+        return data
+
+
+
 def edge_types_to_undirected(edge_types: list[tuple[str, str]]):
     undirected_edges = list(edge_types)
     for edge in edge_types:
@@ -59,7 +168,9 @@ def split_on_edge_types(
     Function that splits edges based on a given list of edge types.
     It returns a dict, with a key for each (found) edge type and a list for the corresponding edges.
 
-    Currently, the function assumes directed edges. So do specify both ways, if undirected edges are wanted.
+    Currently, the function assumes:
+        - Directed edges. So do specify both ways, if undirected edges are wanted.
+        - Object type names are in the object IDs (found in edge_list).
 
     Procedure:
     Per edge type (in edge_types), append all edges (from edge_list)
@@ -115,6 +226,7 @@ def rename_edges_in_split_dict(
 def to_torch_coo_format(edge_list: list[tuple[int, int]]) -> torch.Tensor:
     return torch.tensor(edge_list, dtype=torch.int64).T
 
+
 def load_hetero_datasets(
     storage_path: str,
     split_feature_storage_file: str,
@@ -125,11 +237,12 @@ def load_hetero_datasets(
     object_node_types: list[str],
     event_node_type: str = "event",
     graph_level_target: bool = False,
+    pre_transform=None,
     transform=None,
     train: bool = True,
     val: bool = True,
     test: bool = True,
-    verbosity:int = 51,
+    verbosity: int = 51,
     skip_cache: bool = False,
 ) -> list[HOEG]:
     datasets = []
@@ -143,6 +256,7 @@ def load_hetero_datasets(
         "object_node_types": object_node_types,
         "event_node_type": event_node_type,
         "graph_level_target": graph_level_target,
+        'pre_transform':pre_transform,
         "transform": transform,
         "verbosity": int(verbosity),
         "skip_cache": skip_cache,
@@ -158,7 +272,6 @@ def load_hetero_datasets(
         ds_test = HOEG(test=True, **kwargs)
         datasets.append(ds_test)
     return datasets
-
 
 
 def print_hetero_dataset_summaries(
@@ -211,7 +324,7 @@ def hetero_dataloaders_from_datasets(
     if ds_test:
         test_loader = DataLoader(
             ds_test,
-            batch_size=128,
+            batch_size=batch_size,
             shuffle=shuffle,
             pin_memory=pin_memory,
             num_workers=num_workers,

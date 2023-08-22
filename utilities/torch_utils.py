@@ -1,5 +1,6 @@
 import platform
 import random
+import re
 
 import cpuinfo
 import numpy as np
@@ -75,3 +76,17 @@ def print_torch_info() -> None:
     print(f"Torch version: {torch.__version__}")
     print(f"Cuda available: {torch.cuda.is_available()}")
     print(f"Torch geometric version: {torch_geometric.__version__}")
+
+
+def parse_model_string(model: GraphModel) -> dict:
+    model_string = str(model)
+    model_dict = {}
+    model_name = model_string.split("(")[0]
+    layer_matches = re.findall(r"\s+\((\w+)\): ([^\n]+)", model_string)
+
+    layer_dict = {}
+    for layer_name, layer_params in layer_matches:
+        layer_dict[layer_name] = layer_params
+
+    model_dict[model_name] = layer_dict
+    return model_dict

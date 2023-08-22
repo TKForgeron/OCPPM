@@ -15,6 +15,14 @@ from tqdm import tqdm
 from models.definitions.geometric_models import GraphModel
 
 
+def _custom_verbosity_enumerate(iterable, verbose: bool, miniters: int):
+    """Returns either just the enumerated iterable, or one with the progress tracked."""
+    if verbose:
+        return tqdm(enumerate(iterable), miniters=miniters)
+    else:
+        return enumerate(iterable)
+
+
 def train_one_epoch(
     epoch_index: int,
     model: GraphModel,
@@ -33,7 +41,7 @@ def train_one_epoch(
     # Enumerate over the data
     running_loss = 0.0
     last_loss = 0
-    for i, batch in enumerate(tqdm(train_loader, miniters=25)):
+    for i, batch in _custom_verbosity_enumerate(train_loader, verbose, miniters=25):
         # Use GPU
         batch.to(device)
         # Every data instance is an input + label pair
@@ -140,6 +148,7 @@ def run_training(
             epochs_without_improvement += 1
 
         if epochs_without_improvement >= early_stopping_criterion:
-            print(f"Early stopping after {epoch+1} epochs.")
+            if verbose:
+                print(f"Early stopping after {epoch+1} epochs.")
             break
     return best_model_state_dict_path
