@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,17 +33,23 @@ def _get_lr_visual_values(lrs_dict: dict, lr_key: str) -> tuple[list, list, list
     return [int(hd) for hd in no_hds], [int(p) for p in no_params], mae_scores
 
 
-def create_exp1_encoding_plot(encoding: str, exp1_results: dict, save: bool) -> None:
+def create_exp1_encoding_plot(
+    encoding: str,
+    exp1_results: dict,
+    save: bool,
+    figsize: tuple[int, int] = (20, 5),
+    fontsize: Union[float, int] = 15,
+    dpi: int = 128,
+) -> None:
     # CAPTION: test scores only
     datasets = exp1_results[encoding]
     fig, axes = plt.subplots(
-        1, len(datasets), figsize=(20, 5), dpi=128
+        1, len(datasets), figsize=figsize, dpi=dpi
     )  # 1 row and 3 columns of subplots
 
     for axis, (dataset, lrs) in zip(axes, datasets.items()):
         if dataset == "BPI17":
-            axis.set_ylabel("Mean Absolute Error")
-
+            axis.set_ylabel("Mean Absolute Error", fontsize=fontsize)
         no_hds, no_params, mae_scores = _get_lr_visual_values(lrs, "learning_rate=0.01")
         axis.semilogx(no_hds, mae_scores, marker="o", label="lr=0.01", color=YELLOW)
 
@@ -51,16 +58,19 @@ def create_exp1_encoding_plot(encoding: str, exp1_results: dict, save: bool) -> 
         )
         axis.semilogx(no_hds, mae_scores, marker="o", label="lr=0.001", color=RED)
 
-        axis.set_title(f"{encoding.upper()} on {dataset} OCEL")
-        axis.set_xlabel("Number of Parameters\n(Hidden Dimensions)")
+        axis.set_title(f"{encoding.upper()} on {dataset} OCEL", size=fontsize * 1.1)
+        axis.set_xlabel("Hidden Dimensions", fontsize=fontsize)
 
         # Create formatted tick labels
-        tick_labels = [f"{params}\n({hds})" for hds, params in zip(no_hds, no_params)]
-
+        tick_labels = [f"{hds}" for hds, params in zip(no_hds, no_params)]
+        
         axis.set_xticks(no_hds)
-        axis.set_xticklabels(tick_labels)  # Set the formatted tick labels
+        axis.set_xticklabels(
+            tick_labels, fontsize=fontsize * 0.9
+        )  # Set the formatted tick labels
+        axis.tick_params(axis="y", labelsize=fontsize * 0.9)
 
-        axis.legend()
+        axis.legend(fontsize=fontsize*0.85)
         axis.grid(True)
 
     plt.tight_layout()
@@ -73,6 +83,9 @@ def create_exp2a_plot(
     encoding_performances: dict,
     dataset: str,
     encoding_types: list[str] = ["efg", "hoeg"],
+    figsize: tuple[int, int] = (20, 5),
+    fontsize: Union[float, int] = 15,
+    legend_location:Optional[str]=None,
     save: bool = True,
 ) -> None:
     enc_perf_on_dataset = encoding_performances[dataset]
@@ -115,14 +128,28 @@ def create_exp2a_plot(
         vp.set_alpha(0.45)
         # vp.set_linewidth(1)
 
-    plt.title(f"Performance Distribution on {dataset} OCEL")
+    # Customize plot
+    title_fontsize = (
+        fontsize * 1.1 if type(fontsize) == int or type(fontsize) == float else fontsize
+    )
+    legend_fontsize = (
+        fontsize * 0.85
+        if type(fontsize) == int or type(fontsize) == float
+        else fontsize
+    )
+    ticks_fontsize = (
+        fontsize * 0.9 if type(fontsize) == int or type(fontsize) == float else fontsize
+    )
+    plt.title(f"Performance Distribution on {dataset} OCEL", fontsize=title_fontsize)
     plt.xticks(
         [1, 2, 3, 4, 5, 6],
         ["", encoding_types[0].upper(), "", "", encoding_types[1].upper(), ""],
+        fontsize=ticks_fontsize,
     )
-    plt.ylabel("Mean Absolute Error")
+    plt.ylabel("Mean Absolute Error", fontsize=fontsize)
+    plt.yticks(fontsize=ticks_fontsize)
     plt.tight_layout()
-    plt.legend(list(splits.keys()))
+    plt.legend(list(splits.keys()), fontsize=legend_fontsize,loc=legend_location)
     if save:
         plt.savefig(
             f"visualizations/plots/exp2_encoding_type/performance/{dataset}.pdf"
@@ -137,23 +164,28 @@ def get_exp2b_plot(
         "efg": (BURGUNDY, ORANGE),
         "hoeg": (DARKBLUE, BLUE),
     },
+    figsize: tuple[int, int] = (10, 6),
+    fontsize: Optional[Union[float, int]] = None,
     save: bool = True,
 ) -> None:
     # Read data from CSV files
     encodings = list(encoding_colors.keys())
-    train_data_efg = pd.read_csv(f"{data_base_path}/{dataset}/{encodings[0]}/train.csv")
-    validation_data_efg = pd.read_csv(
-        f"{data_base_path}/{dataset}/{encodings[0]}/valid.csv"
-    )
+    train_data_efg = (
+        train_data_hoeg
+    ) = validation_data_efg = validation_data_hoeg = pd.DataFrame()
+    for encoding in encodings:
+        for root, _, files in os.walk(f"{data_base_path}/{dataset}/{encoding}"):
+            for file in files:
+                if "valid" in file and encoding == "efg":
+                    validation_data_efg = pd.read_csv(os.path.join(root, file))
+                elif "train" in file and encoding == "efg":
+                    train_data_efg = pd.read_csv(os.path.join(root, file))
+                elif "valid" in file and encoding == "hoeg":
+                    validation_data_hoeg = pd.read_csv(os.path.join(root, file))
+                elif "train" in file and encoding == "hoeg":
+                    train_data_hoeg = pd.read_csv(os.path.join(root, file))
 
-    train_data_hoeg = pd.read_csv(
-        f"{data_base_path}/{dataset}/{encodings[1]}/train.csv"
-    )
-    validation_data_hoeg = pd.read_csv(
-        f"{data_base_path}/{dataset}/{encodings[1]}/valid.csv"
-    )
-
-    plt.figure(figsize=(10, 6))  # Set the figure size
+    plt.figure(figsize=figsize)  # Set the figure size
 
     # Iterate over encoding types
     for encoding_type, train_data, validation_data, line_style, colors in zip(
@@ -185,10 +217,26 @@ def get_exp2b_plot(
         )
 
     # Customize plot
-    plt.xlabel("Epochs")
-    plt.ylabel("Mean Absolute Error")
-    plt.title("Learning Curves of Best Performing Models on BPI17")
-    plt.legend()
+    title_fontsize = (
+        fontsize * 1.1 if type(fontsize) == int or type(fontsize) == float else fontsize
+    )
+    legend_fontsize = (
+        fontsize * 0.75
+        if type(fontsize) == int or type(fontsize) == float
+        else fontsize
+    )
+    ticks_fontsize = (
+        fontsize * 0.9 if type(fontsize) == int or type(fontsize) == float else fontsize
+    )
+    plt.xlabel("Epochs", fontsize=fontsize)
+    plt.ylabel("Mean Absolute Error", fontsize=fontsize)
+    plt.title(
+        f"Learning Curves of Best Performing Models on {dataset} OCEL",
+        fontsize=title_fontsize,
+    )
+    plt.legend(fontsize=legend_fontsize)
+    plt.xticks(fontsize=ticks_fontsize)
+    plt.yticks(fontsize=fontsize)
     plt.grid(True)
     if save:
         plt.savefig(

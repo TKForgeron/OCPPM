@@ -1,6 +1,6 @@
 # Python native
 import os
-from typing import Any, Callable
+from typing import Callable, Union
 
 # PyG
 import torch
@@ -15,7 +15,9 @@ from tqdm import tqdm
 from models.definitions.geometric_models import GraphModel
 
 
-def _custom_verbosity_enumerate(iterable, verbose: bool, miniters: int):
+def _custom_verbosity_enumerate(
+    iterable, verbose: bool, miniters: Union[int, None] = None
+):
     """Returns either just the enumerated iterable, or one with the progress tracked."""
     if verbose:
         return tqdm(enumerate(iterable), miniters=miniters)
@@ -34,6 +36,7 @@ def train_one_epoch(
     y_dtype: torch.dtype,
     device: torch.device,
     verbose: bool = True,
+    squeeze: bool = True,
 ) -> float:
     if verbose:
         print(f"EPOCH {epoch_index}:")
@@ -41,28 +44,28 @@ def train_one_epoch(
     # Enumerate over the data
     running_loss = 0.0
     last_loss = 0
-    for i, batch in _custom_verbosity_enumerate(train_loader, verbose, miniters=25):
+    for i, batch in _custom_verbosity_enumerate(train_loader, verbose, miniters=None):
         # Use GPU
         batch.to(device)
         # Every data instance is an input + label pair
         inputs, adjacency_matrix, labels = (
-            batch.x.to(x_dtype),  # k times the batch_size, where k is the subgraph size
+            batch.x.to(x_dtype),
             batch.edge_index,
             batch.y.to(y_dtype),
         )
         # Reset gradients (set_to_none is faster than to zero)
         optimizer.zero_grad(set_to_none=True)
-        # Passing the node features and the connection info
+        # Passing the node features and connection and batch info
         outputs = model(inputs, edge_index=adjacency_matrix, batch=batch.batch)
         # Compute loss and gradients
-        loss = loss_fn(outputs.squeeze(), labels)
+        loss = loss_fn(outputs, labels)
         loss.backward()
         # Adjust learnable weights
         optimizer.step()
         # Gather data and report
         running_loss += loss.item()
-        if i % 1000 == 999:
-            last_loss = running_loss / 1000  # loss per batch
+        if i % 25 == 24:
+            last_loss = running_loss / 25  # loss per batch
             if verbose:
                 print(f"  batch {i+1} loss: {last_loss}")
             tb_x = epoch_index * len(train_loader) + i
@@ -85,6 +88,7 @@ def run_training(
     y_dtype: torch.dtype,
     device: torch.device,
     verbose: bool = True,
+    squeeze: bool = True,
 ) -> str:
     if not os.path.exists(model_path_base):
         os.makedirs(model_path_base)
@@ -108,8 +112,8 @@ def run_training(
             y_dtype=y_dtype,
             device=device,
             verbose=verbose,
+            squeeze=squeeze,
         )
-
         # We don't need gradients on to do reporting
         model.train(False)
 
@@ -122,7 +126,7 @@ def run_training(
                 vdata.y.to(y_dtype),
             )
             voutputs = model(vinputs, edge_index=vadjacency_matrix, batch=vdata.batch)
-            vloss = loss_fn(voutputs.squeeze(), vlabels)
+            vloss = loss_fn(voutputs, vlabels)
             running_vloss += vloss
 
         avg_vloss = running_vloss / i

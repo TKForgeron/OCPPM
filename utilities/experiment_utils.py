@@ -18,7 +18,7 @@ def run_efg_experiment_configuration(
     train_loader: DataLoader,
     val_loader: DataLoader,
     test_loader: DataLoader,
-    efg_config,
+    efg_config: dict,
 ) -> None:
     # HYPERPARAMETER INITIALIZATION (those that we tune)
     print()
@@ -26,7 +26,13 @@ def run_efg_experiment_configuration(
     efg_config["hidden_dim"] = hidden_dim
     efg_config["optimizer_settings"]["lr"] = lr
     # MODEL INITIALIZATION
-    model = model_class(hidden_dim, 1)
+    model = model_class(
+        hidden_channels=hidden_dim,
+        out_channels=1,
+        squeeze=efg_config["squeeze"],
+        graph_level_prediction=efg_config["graph_level_prediction"],
+    )
+
     # pretrained_state_dict = torch.load("models/runs/GraphConvNet_20230718_13h59m/state_dict_epoch6.pt")
     # model.load_state_dict(pretrained_state_dict)
 
@@ -54,6 +60,7 @@ def run_efg_experiment_configuration(
         y_dtype=efg_config["target_dtype"],
         device=efg_config["device"],
         verbose=efg_config["verbose"],
+        squeeze=efg_config["squeeze"],
     )
 
     total_train_time = datetime.now() - start_train_time

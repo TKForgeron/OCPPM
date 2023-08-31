@@ -15,6 +15,8 @@ from torch_geometric.loader import DataLoader
 import utilities.training_utils as training_utils
 from models.definitions.geometric_models import GraphModel
 
+CS_CORRECTION = False
+
 
 def train_one_epoch_hetero(
     target_node_type: str,
@@ -55,7 +57,13 @@ def train_one_epoch_hetero(
         if squeeze_required:
             loss = loss_fn(torch.squeeze(outputs[target_node_type]), labels)
         else:
-            loss = loss_fn(outputs[target_node_type], labels)
+            if CS_CORRECTION:  # very specific, needed for HOEG on CS OCEL
+                new_shape = (-1, 18)
+                # new_shape = inputs[target_node_type].size()
+                outputs = outputs[target_node_type].view(new_shape).mean(dim=1)
+                loss = loss_fn(outputs, labels)
+            else:
+                loss = loss_fn(outputs[target_node_type], labels)
         loss.backward()
         # Adjust learnable weights
         optimizer.step()
@@ -121,7 +129,12 @@ def run_training_hetero(
                 vbatch[target_node_type].y,
             )
             voutputs = model(vinputs, vadjacency_matrix)
-            vloss = loss_fn(voutputs[target_node_type], vlabels)
+            if CS_CORRECTION:  # very specific, needed for HOEG on CS OCEL
+                new_shape = (-1, 18)
+                voutputs = voutputs[target_node_type].view(new_shape).mean(dim=1)
+                vloss = loss_fn(voutputs, vlabels)
+            else:
+                vloss = loss_fn(voutputs[target_node_type], vlabels)
             running_vloss += vloss
 
         avg_vloss = running_vloss / i

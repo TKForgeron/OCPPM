@@ -8,8 +8,12 @@ import torch_geometric.nn as pygnn
 from torch_geometric.loader import DataLoader
 
 import utilities.torch_utils
-from utilities import (evaluation_utils, hetero_data_utils,
-                       hetero_evaluation_utils, hetero_training_utils)
+from utilities import (
+    evaluation_utils,
+    hetero_data_utils,
+    hetero_evaluation_utils,
+    hetero_training_utils,
+)
 
 
 def run_hoeg_experiment_configuration(
@@ -21,8 +25,6 @@ def run_hoeg_experiment_configuration(
     test_loader: DataLoader,
     hoeg_config,
 ) -> None:
-    if 'pre_forward_view' not in hoeg_config:
-        hoeg_config["pre_forward_view"] = False
     # HYPERPARAMETER INITIALIZATION (those that we tune)
     print()
     print(f"lr={lr}, hidden_dim={hidden_dim}:")
@@ -34,7 +36,7 @@ def run_hoeg_experiment_configuration(
         hidden_channels=hidden_dim,
         out_channels=1,
         squeeze=hoeg_config["squeeze"],
-        pre_forward_view=hoeg_config["pre_forward_view"],
+        graph_level_prediction=hoeg_config["graph_level_target"],
     )
     model = pygnn.to_hetero(model, hoeg_config["meta_data"])
 
@@ -61,6 +63,7 @@ def run_hoeg_experiment_configuration(
         model_path_base=model_path_base,
         device=hoeg_config["device"],
         verbose=hoeg_config["verbose"],
+        squeeze_required=hoeg_config["squeeze"],
     )
     total_train_time = datetime.now() - start_train_time
 

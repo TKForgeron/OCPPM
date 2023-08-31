@@ -1,17 +1,10 @@
 # Python native
-import os
-
-os.chdir("/home/tim/Development/OCPPM/")
-
-# %%
-# import logging
-from typing import Any, Callable, Union
+from typing import Any, Callable, Optional, Union
 
 import pandas as pd
+
 # PyG
 import torch
-# PyTorch TensorBoard support
-import torch.utils.tensorboard
 import torch_geometric.transforms.to_undirected as T
 from torch_geometric.data import Data, HeteroData
 from torch_geometric.loader import DataLoader, NeighborLoader
@@ -19,7 +12,38 @@ from torch_geometric.loader import DataLoader, NeighborLoader
 # Custom imports
 from experiments.hoeg import HOEG
 
-# %%
+
+class AddObjectSelfLoops(T.BaseTransform):
+    def __init__(
+        self,
+        object_types: Union[list[str], str] = "all",
+        event_node_name: str = "event",
+        object_to_object_relation_name: str = "updates",
+    ):
+        self.object_types = object_types
+        self.event_node_name = event_node_name
+        self.relation_name = object_to_object_relation_name
+
+    def forward(
+        self,
+        data: HeteroData,
+    ) -> HeteroData:
+        if self.object_types == "all":
+            self.object_types = set()
+            for src, _, dst in data.edge_types:
+                if src != self.event_node_name:
+                    self.object_types.add(src)
+                if dst != self.event_node_name:
+                    self.object_types.add(dst)
+        else:
+            # create self-loops for each object node type
+            for ot in self.object_types:
+                # node_index = torch.arange(data[ot]['x'].size(0))
+                # data[ot, 'updates', ot].edge_index = torch.tensor([[node_index], [node_index]],dtype=torch.int64)
+                data[ot, self.relation_name, ot].edge_index = torch.tensor(
+                    [[], []], dtype=torch.int64
+                )
+        return data
 
 
 class ToUndirected(T.BaseTransform):
@@ -35,7 +59,7 @@ class ToUndirected(T.BaseTransform):
 
     def __init__(
         self,
-        exclude_edge_types: list[tuple[str, str, str]]=[],
+        exclude_edge_types: list[tuple[str, str, str]] = [],
         reduce: str = "add",
         merge: bool = True,
     ):
@@ -91,6 +115,7 @@ class ToUndirected(T.BaseTransform):
 
         return data
 
+
 class FillEmptyNodeTypes(T.BaseTransform):
     def __init__(
         self,
@@ -105,28 +130,13 @@ class FillEmptyNodeTypes(T.BaseTransform):
         data: Union[Data, HeteroData],
     ) -> Union[Data, HeteroData]:
         for store in data.stores:
-            for key, value in store.items('x'):
+            for key, value in store.items(["x"]):
                 # fill empty data store with `self.fill_value`
                 if value.shape[0] == 0:
-                    store[key] = torch.tensor([[self.fill_value]],dtype=self.fill_value_dtype)
+                    store[key] = torch.tensor(
+                        [[self.fill_value]], dtype=self.fill_value_dtype
+                    )
         return data
-    
-class NormalizeFeatures(T.BaseTransform):
-    def __init__(self, attrs: list[str] = ["x"]):
-        self.attrs = attrs
-
-    def __call__(
-        self,
-        data: Union[Data, HeteroData],
-    ) -> Union[Data, HeteroData]:
-        for store in data.stores:
-            for key, value in store.items(*self.attrs):
-                if value.shape[0] != 0:
-                    value = value - value.min()
-                    value.div_(value.sum(dim=-1, keepdim=True).clamp_(min=1.))
-                    store[key] = value
-        return data
-
 
 
 def edge_types_to_undirected(edge_types: list[tuple[str, str]]):
@@ -242,8 +252,10 @@ def load_hetero_datasets(
     train: bool = True,
     val: bool = True,
     test: bool = True,
-    verbosity: int = 51,
+    verbosity: Union[int, bool] = 51,
     skip_cache: bool = False,
+    debug: bool = False,
+    generator: Optional[torch.Generator] = None,
 ) -> list[HOEG]:
     datasets = []
     kwargs = {
@@ -256,10 +268,12 @@ def load_hetero_datasets(
         "object_node_types": object_node_types,
         "event_node_type": event_node_type,
         "graph_level_target": graph_level_target,
-        'pre_transform':pre_transform,
+        "pre_transform": pre_transform,
         "transform": transform,
         "verbosity": int(verbosity),
         "skip_cache": skip_cache,
+        "debug": debug,
+        "generator": generator,
     }
 
     if train:
@@ -289,14 +303,14 @@ def print_hetero_dataset_summaries(
 
 def hetero_dataloaders_from_datasets(
     batch_size: int,
-    ds_train: HOEG = None,
-    ds_val: HOEG = None,
-    ds_test: HOEG = None,
+    ds_train: Optional[HOEG] = None,
+    ds_val: Optional[HOEG] = None,
+    ds_test: Optional[HOEG] = None,
     shuffle: bool = True,
     pin_memory: bool = True,
     num_workers: int = 4,
-    seed_worker: Callable[[int], None] = None,
-    generator: torch.Generator = None,
+    seed_worker: Optional[Callable[[int], None]] = None,
+    generator: Optional[torch.Generator] = None,
 ) -> list[DataLoader]:
     dataloaders = []
     if ds_train:
@@ -343,7 +357,7 @@ def hetero_dataloaders_from_hetero_data(
     shuffle: bool = True,
     pin_memory: bool = True,
     num_workers: int = 4,
-    generator: torch.Generator = None,
+    generator: Optional[torch.Generator] = None,
 ) -> tuple[NeighborLoader, NeighborLoader, NeighborLoader]:
     train_loader = NeighborLoader(
         hetero_data,
@@ -382,3 +396,133 @@ def hetero_dataloaders_from_hetero_data(
         generator=generator,
     )
     return train_loader, val_loader, test_loader
+
+
+def validate_cs_hoeg_dataset(dataset: HOEG, verbose: bool = True) -> list[HeteroData]:
+    event_ids_ev_ev = []
+    krs_ids_krs_ev = []
+    krv_ids_krv_ev = []
+    cv_ids_cv_ev = []
+    event_ids_krs_ev = []
+    event_ids_krv_ev = []
+    event_ids_cv_ev = []
+    krs_ids_krs_krs = []
+    krv_ids_krv_krv = []
+    cv_ids_cv_cv = []
+    invalid_batches = []
+    for batch in dataset:
+        batch: HeteroData
+        ev_ev_ev = (
+            batch["event"].num_nodes
+            == batch["event"].x.shape[0]
+            == int(batch["event", "follows", "event"].edge_index.max() + 1)
+        )
+        krs_krs_ev = (
+            batch["krs"].num_nodes
+            == batch["krs"].x.shape[0]
+            == int(batch["krs", "interacts", "event"].edge_index[0].max() + 1)
+        )
+        krv_krv_ev = (
+            batch["krv"].num_nodes
+            == batch["krv"].x.shape[0]
+            == int(batch["krv", "interacts", "event"].edge_index[0].max() + 1)
+        )
+        cv_cv_ev = (
+            batch["cv"].num_nodes
+            == batch["cv"].x.shape[0]
+            == int(batch["cv", "interacts", "event"].edge_index[0].max() + 1)
+        )
+        ev_krs_ev = batch["event"].num_nodes == batch["event"].x.shape[0] and batch[
+            "event"
+        ].num_nodes >= int(batch["krs", "interacts", "event"].edge_index[1].max() + 1)
+        ev_krv_ev = batch["event"].num_nodes == batch["event"].x.shape[0] and batch[
+            "event"
+        ].num_nodes >= int(batch["krv", "interacts", "event"].edge_index[1].max() + 1)
+        ev_cv_ev = batch["event"].num_nodes == batch["event"].x.shape[0] and batch[
+            "event"
+        ].num_nodes >= int(batch["cv", "interacts", "event"].edge_index[1].max() + 1)
+        krs_krs_krs = (
+            batch["krs"].x.shape[0]
+            == batch["krs"].num_nodes
+            == int(batch["krs", "updates", "krs"].edge_index.max() + 1)
+        )
+        krv_krv_krv = (
+            batch["krv"].x.shape[0]
+            == batch["krv"].num_nodes
+            == int(batch["krv", "updates", "krv"].edge_index.max() + 1)
+        )
+        cv_cv_cv = (
+            batch["cv"].x.shape[0]
+            == batch["cv"].num_nodes
+            == int(batch["cv", "updates", "cv"].edge_index.max() + 1)
+        )
+
+        event_ids_ev_ev.append(ev_ev_ev)
+        krs_ids_krs_ev.append(krs_krs_ev)
+        krv_ids_krv_ev.append(krv_krv_ev)
+        cv_ids_cv_ev.append(cv_cv_ev)
+        event_ids_krs_ev.append(ev_krs_ev)
+        event_ids_krv_ev.append(ev_krv_ev)
+        event_ids_cv_ev.append(ev_cv_ev)
+        krs_ids_krs_krs.append(krs_krs_krs)
+        krv_ids_krv_krv.append(krv_krv_krv)
+        cv_ids_cv_cv.append(cv_cv_cv)
+        if not all(
+            [
+                ev_ev_ev,
+                krs_krs_ev,
+                krv_krv_ev,
+                cv_cv_ev,
+                ev_krs_ev,
+                ev_krv_ev,
+                ev_cv_ev,
+                krs_krs_krs,
+                krv_krv_krv,
+                cv_cv_cv,
+            ]
+        ):
+            invalid_batches.append(batch)
+    if verbose:
+        print(
+            "Event node indices valid in all HeteroData for edge type event-event: ",
+            all(event_ids_ev_ev),
+        )
+        print(
+            "KRS node indices valid in all HeteroData for edge type krs-event: ",
+            all(krs_ids_krs_ev),
+        )
+        print(
+            "KRV node indices valid in all HeteroData for edge type krv-event: ",
+            all(krv_ids_krv_ev),
+        )
+        print(
+            "CV node indices valid in all HeteroData for edge type cv-event: ",
+            all(cv_ids_cv_ev),
+        )
+        print(
+            "Event node indices valid in all HeteroData for edge type krs-event: ",
+            all(event_ids_krs_ev),
+        )
+        print(
+            "Event node indices valid in all HeteroData for edge type krv-event: ",
+            all(event_ids_krv_ev),
+        )
+        print(
+            "Event node indices valid in all HeteroData for edge type cv-event: ",
+            all(event_ids_cv_ev),
+        )
+        print(
+            "KRS node indices valid in all HeteroData for edge type krs-krs: ",
+            all(krs_ids_krs_krs),
+        )
+        print(
+            "KRV node indices valid in all HeteroData for edge type krv-krv: ",
+            all(krv_ids_krv_krv),
+        )
+        print(
+            "CV node indices valid in all HeteroData for edge type cv-cv: ",
+            all(cv_ids_cv_cv),
+        )
+        print()
+    print("HOEG dataset valid: ", not (len(invalid_batches)))
+    return invalid_batches
