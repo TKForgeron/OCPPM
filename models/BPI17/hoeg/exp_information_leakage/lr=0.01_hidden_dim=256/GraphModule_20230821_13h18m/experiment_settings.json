@@ -1,0 +1,33 @@
+{
+  "model_output_path": "models/BPI17/hoeg/exp_v2",
+  "STORAGE_PATH": "data/BPI17/feature_encodings/HOEG/hoeg",
+  "SPLIT_FEATURE_STORAGE_FILE": "BPI_split_[C2_P2_P3_P5_O3_Action_EventOrigin_OrgResource].fs",
+  "OBJECTS_DATA_DICT": "bpi17_ofg+oi_graph+app_node_map+off_node_map.pkl",
+  "events_target_label": "('event_remaining_time', ())",
+  "objects_target_label": "@@object_lifecycle_duration",
+  "target_node_type": "event",
+  "object_types": [
+    "application",
+    "offer"
+  ],
+  "meta_data": "(['event', 'application', 'offer'], [('event', 'follows', 'event'), ('event', 'interacts', 'application'), ('event', 'interacts', 'offer'), ('application', 'rev_interacts', 'event'), ('offer', 'rev_interacts', 'event')])",
+  "BATCH_SIZE": 16,
+  "RANDOM_SEED": 42,
+  "EPOCHS": 32,
+  "early_stopping": 8,
+  "hidden_dim": 256,
+  "optimizer": "<class 'torch.optim.adam.Adam'>",
+  "optimizer_settings": {
+    "lr": 0.01,
+    "betas": "(0.9, 0.999)",
+    "eps": 1e-08,
+    "weight_decay": 0,
+    "amsgrad": false
+  },
+  "loss_fn": "L1Loss()",
+  "verbose": false,
+  "skip_cache": false,
+  "track_time": true,
+  "device": "cuda",
+  "squeeze": true
+}

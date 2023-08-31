@@ -1,0 +1,19 @@
+{
+  "GraphModule": {
+    "convs": "ModuleList(",
+    "0": "ModuleDict(",
+    "event__follows__event": "GraphConv(-1, 16)",
+    "application__interacts__event": "GraphConv(-1, 16)",
+    "offer__interacts__event": "GraphConv(-1, 16)",
+    "application__updates__application": "GraphConv(-1, 16)",
+    "offer__updates__offer": "GraphConv(-1, 16)",
+    "1": "ModuleDict(",
+    "acts": "ModuleList(",
+    "event": "Linear(16, 1, bias=True)",
+    "application": "Linear(16, 1, bias=True)",
+    "offer": "Linear(16, 1, bias=True)",
+    "post_layers": "ModuleList(",
+    "pre_layers": "ModuleList()"
+  },
+  "Number of parameters": 4985
+}

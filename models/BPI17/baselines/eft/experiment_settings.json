@@ -1,0 +1,13 @@
+{
+  "experiment_settings": {
+    "objective": "regression",
+    "metric": [
+      "mse",
+      "mae",
+      "mape",
+      "rmse"
+    ],
+    "num_boost_round": 100,
+    "stopping_rounds": 100
+  }
+}
