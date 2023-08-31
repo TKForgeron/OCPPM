@@ -3,6 +3,10 @@
 # Local test files
 ltest*
 
+# Tikz or LaTeX files
+*.tikz
+*.tex
+
 # CS dataset
 data/CS/
 
@@ -89,3 +93,8 @@ venv.bak/
 # DO NOT IGNORE THIS (DO UPLOAD)
 # !BPI2017-Final.csv
 !*BPI2017-Final.jsonocel.zip
+!*all_model_scores.xlsx
+!*evaluation_report.json
+!*experiment_settings.json
+!*model_architecture.json
+!*state_dict_epoch*.pt
