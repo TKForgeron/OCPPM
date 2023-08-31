@@ -1,16 +1,19 @@
 # import logging
 import os
 import pickle
+import warnings
 from collections import defaultdict
-from typing import Any, Union
+from itertools import chain
+from typing import Any, Optional, Union
 
 import pandas as pd
 import torch
+
 # import torch_geometric
 # import torch_geometric.transforms as T
-from ocpa.algo.predictive_monitoring.obj import \
-    Feature_Storage as FeatureStorage
+from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
 from torch_geometric.data import Dataset, HeteroData
+from tqdm import tqdm
 
 from experiments.efg import EFG
 
@@ -21,6 +24,22 @@ from experiments.efg import EFG
 #     filename="logging/DEBUG.log",
 # )
 # logging.debug("-" * 32 + " hoeg.py " + "-" * 32)
+
+
+class ObjectException(RuntimeError):
+    pass
+
+
+class NodeException(RuntimeError):
+    pass
+
+
+class EdgeException(RuntimeError):
+    pass
+
+
+class EdgeWarning(RuntimeWarning):
+    pass
 
 
 class HOEG(EFG):
@@ -56,6 +75,8 @@ class HOEG(EFG):
         pre_transform=None,
         file_extension: str = "pt",
         skip_cache: bool = False,
+        debug: bool = False,
+        generator: Optional[torch.Generator] = None,
     ):
         """
         root (string, optional): Where the dataset should be stored. This folder is split
@@ -96,7 +117,9 @@ class HOEG(EFG):
         self.train = train
         self.validation = validation
         self.test = test
+        self.generator = generator
         self._verbosity = verbosity
+        self._debug = debug
         self._base_filename = "graph"
         if self.train:
             self._base_filename += "_train"
@@ -183,6 +206,36 @@ class HOEG(EFG):
             # Write all graphs to disk
             self._feature_graphs_to_disk(self.data.feature_graphs)
 
+    def _feature_graphs_to_disk(
+        self,
+        feature_graphs: list[FeatureStorage.Feature_Graph],
+    ):
+        # Set size of the dataset
+        self.size = len(feature_graphs)
+        # Save each feature_graph instance
+        for index, feature_graph in self.__custom_verbosity_enumerate(
+            feature_graphs, miniters=self._verbosity
+        ):
+            try:
+                # Save a feature_graph instance
+                self._feature_graph_to_graph_to_disk(
+                    feature_graph=feature_graph,
+                    graph_idx=index,
+                    graph_level_target=self.graph_level_target,
+                )
+            except NodeException as e:
+                if self._verbosity and self._debug:
+                    print(feature_graph.pexec_id)
+                    print(
+                        f"NodeException for FeatureGraph at index: {index}. Reason: {e}"
+                    )
+            except EdgeException as e:
+                if self._verbosity and self._debug:
+                    print(feature_graph.pexec_id)
+                    print(
+                        f"EdgeException for FeatureGraph at index: {index}. Reason: {e}"
+                    )
+
     def _feature_graph_to_graph_to_disk(
         self,
         feature_graph: FeatureStorage.Feature_Graph,
@@ -196,6 +249,12 @@ class HOEG(EFG):
             feature_graph=feature_graph,
             object_to_feature_vector_map=self.objects_data["object_feature_vector_map"],
         )
+        # if not all object types relate to the current feature graph,
+        # pad the missing object type (1-fill)
+        pad_missing_object_type = bool(
+            set(self.object_node_types) - set(object_node_map.keys())
+        )
+
         # Split off labels from nodes, and return dict with tensor of event node labels
         event_node_labels = self._split_X_y(
             feature_graph=feature_graph,
@@ -210,6 +269,7 @@ class HOEG(EFG):
             object_feature_matrices=self.objects_data["object_feature_matrices"],
             object_id_to_feature_matrix_index=object_feature_vector_map,
             object_nodes_label_key=self.object_nodes_label_key,
+            pad_missing_object_type=pad_missing_object_type,
         )
         # Get adjacency matrix per semantically sensible edge type
         edge_index_dict = self._get_hetero_edge_index_dict(
@@ -217,6 +277,7 @@ class HOEG(EFG):
             feature_graph=feature_graph,
             edge_types=self.edge_types,
             object_node_map=object_node_map,
+            pad_missing_object_type=pad_missing_object_type,
         )
 
         # Define heterogeneous graph
@@ -252,7 +313,10 @@ class HOEG(EFG):
         hetero_data[event_node_type].x = node_features[event_node_type]["x"]
         hetero_data[event_node_type].y = event_node_labels[event_node_type]
         for object_node_type in object_node_types:
-            if object_node_type not in node_features:
+            if object_node_type in node_features:
+                hetero_data[object_node_type].x = node_features[object_node_type]["x"]
+                hetero_data[object_node_type].y = node_features[object_node_type]["y"]
+            else:
                 # continue # if object type not related to current process execution graph, skip loop and try next object type
                 hetero_data[object_node_type].x = torch.tensor(
                     [], dtype=self.features_dtype
@@ -260,17 +324,14 @@ class HOEG(EFG):
                 hetero_data[object_node_type].y = torch.tensor(
                     [], dtype=self.target_dtype
                 )
-            else:
-                hetero_data[object_node_type].x = node_features[object_node_type]["x"]
-                hetero_data[object_node_type].y = node_features[object_node_type]["y"]
+
         # Define edge index per edge type
-        for edge_type in edge_types:
-            subject, predicate, object = edge_type[0], edge_type[1], edge_type[2]
-            if edge_type in edge_index_dict:
-                edge_index = edge_index_dict[edge_type]
+        for src, rel, dst in edge_types:
+            if (src, rel, dst) in edge_index_dict:
+                edge_index = edge_index_dict[src, rel, dst]
             else:
                 edge_index = torch.tensor([[], []], dtype=torch.int64)
-            hetero_data[subject, predicate, object].edge_index = edge_index
+            hetero_data[src, rel, dst].edge_index = edge_index
         # TODO: test whether non existing edge_types should be defined empty, or just not defined
         #       I think they should be defined so PyG can add self-loops
         #       (but then again, do we want that for object_node_types?)
@@ -279,7 +340,7 @@ class HOEG(EFG):
         #     "application", "interacts", "application"
         # ].edge_index = torch.tensor([[], []], dtype=torch.int64)
 
-        return hetero_data
+        return self._align_hetero_graph_edges(hetero_data)
 
     def _get_object_mapping(
         self,
@@ -292,13 +353,17 @@ class HOEG(EFG):
         rows of the object feature matrices (found in self.objects_data)
         that should be added as object nodes in the HeteroData graph.
         """
-
         # get dict with object type as keys and object ids as values
         unique_objects_dict = self.__set_to_split_dict(
             unique_objects=set(
                 item for obj in feature_graph.objects.values() for item in obj
             )
         )
+        if len(unique_objects_dict) < 2:
+            raise ObjectException(
+                f"Trace only related to one object {unique_objects_dict}"
+            )
+
         # get dict of object type as keys and feature vector indices as values
         object_feature_vector_map = self.__replace_dict_values(
             unique_objects_dict, object_to_feature_vector_map
@@ -338,6 +403,7 @@ class HOEG(EFG):
         object_feature_matrices: dict[str, pd.DataFrame],
         object_id_to_feature_matrix_index: dict[str, list[int]],
         object_nodes_label_key: str,
+        pad_missing_object_type: bool,
     ) -> dict[str, dict[str, torch.Tensor]]:
         """
         This will return a dict with  feature matrices per node type
@@ -354,31 +420,59 @@ class HOEG(EFG):
             }
         }
         for object_node_type in object_node_types:
-            if object_node_type in object_id_to_feature_matrix_index:
-                if type(object_id_to_feature_matrix_index[object_node_type][0]) != int:
-                    # logging.debug(f"in self._get_node_features()")
-                    # logging.debug(f"fg.pexec_id: {self.DEBUG_fg_idx}")
-                    # logging.debug(object_id_to_feature_matrix_index[object_node_type])
-                    continue  # cs BUG: somehow 148 objects are prepared incorrectly in `object_id_to_feature_matrix_index`
-                object_node_feature_matrix = (
-                    object_feature_matrices[object_node_type]
-                    .drop(
-                        [f"{object_node_type}_index", "object_index"], axis=1
-                    )  # assuming naming scheme in ofg construction pipeline
-                    .iloc[object_id_to_feature_matrix_index[object_node_type]]
+            if (
+                object_node_type in object_id_to_feature_matrix_index
+                and type(object_id_to_feature_matrix_index[object_node_type][0]) != int
+            ):
+                # logging.debug(f"in self._get_node_features()")
+                # logging.debug(f"fg.pexec_id: {self.DEBUG_fg_idx}")
+                # logging.debug(object_id_to_feature_matrix_index[object_node_type])
+                raise NodeException(
+                    f"`object_id_to_feature_matrix_index` dict contains incorrect node feature indices for key: '{object_node_type}'. Sample: object_id_to_feature_matrix_index[object_node_type][0] === {object_id_to_feature_matrix_index[object_node_type][0]}"
                 )
-                node_features_dict[object_node_type] = {
-                    "y": torch.tensor(
-                        object_node_feature_matrix[object_nodes_label_key].values,
-                        dtype=self.target_dtype,
-                    ),
-                    "x": torch.tensor(
-                        object_node_feature_matrix.drop(
-                            columns=[object_nodes_label_key]
-                        ).values,
-                        dtype=self.features_dtype,
-                    ),
-                }
+                continue  # cs BUG: somehow 148 objects are prepared incorrectly in `object_id_to_feature_matrix_index`
+            else:
+                object_node_type_feature_matrix = object_feature_matrices[
+                    object_node_type
+                ].drop(
+                    [f"{object_node_type}_index", "object_index"], axis=1
+                )  # assuming naming scheme in ofg construction pipeline
+                if object_node_type in object_id_to_feature_matrix_index:
+                    object_node_feature_vectors = object_node_type_feature_matrix.iloc[
+                        object_id_to_feature_matrix_index[object_node_type]
+                    ]
+                    node_features_dict[object_node_type] = {
+                        "y": torch.tensor(
+                            object_node_feature_vectors[object_nodes_label_key].values,
+                            dtype=self.target_dtype,
+                        ),
+                        "x": torch.tensor(
+                            object_node_feature_vectors.drop(
+                                columns=[object_nodes_label_key]
+                            ).values,
+                            dtype=self.features_dtype,
+                        ),
+                    }
+                elif pad_missing_object_type:
+                    missing_object_type_feature_vector_size = (
+                        object_node_type_feature_matrix.shape[1] - 1
+                    )  # -1 for the target variable
+                    node_features_dict[object_node_type] = {
+                        "y": torch.tensor(
+                            # [object_node_type_feature_matrix[
+                            #     object_nodes_label_key
+                            # ].median()],
+                            [0],
+                            dtype=self.target_dtype,
+                        ),
+                        "x": torch.normal(
+                            mean=0,
+                            std=1,
+                            size=(1, missing_object_type_feature_vector_size),
+                            dtype=self.features_dtype,
+                            generator=self.generator,
+                        ),
+                    }
         return node_features_dict
 
     def _get_hetero_edge_index_dict(
@@ -387,15 +481,16 @@ class HOEG(EFG):
         feature_graph: FeatureStorage.Feature_Graph,
         edge_types: list[tuple[str, str, str]],
         object_node_map: dict[str, dict[str, int]],
+        pad_missing_object_type: bool,
     ) -> dict[tuple[str, str, str], torch.Tensor]:
         """
-        Returns the dictionary with directed adjacency matrices per node type, in COO format.
+        Returns the dictionary with directed adjacency matrices per edge type, in COO format.
         """
         edge_index_dict = {}
         for edge_type in edge_types:
             if not event_node_type in edge_type:
-                raise ValueError(
-                    f"UNKNOWN EDGE TYPE GIVEN, at least one of the node types in the given edge type should be '{event_node_type}' (we don't directly connect objects with objects)"
+                raise EdgeException(
+                    f"UNKNOWN EDGE TYPE GIVEN, at least one of the node types in the given edge type should be '{event_node_type}' (direct objects-objects edges not supported)"
                 )
             else:
                 event_node_index_map = self.__get_event_node_index_mapping(
@@ -410,22 +505,77 @@ class HOEG(EFG):
                         for e in feature_graph.edges
                     ]
                 else:
-                    object_node_type = edge_type[
-                        edge_type[::-1].index(event_node_type)
-                    ]  # determine which object node type this edge concerns
-                    if not object_node_type in object_node_map:
-                        continue  # if object type not related to current process execution graph, skip loop and try next object type
-                    edge_index = self.__get_edge_index_for_edge_type(
-                        feature_graph=feature_graph,
-                        edge_type=edge_type,
-                        event_node_map=event_node_index_map,
-                        object_node_map=object_node_map[object_node_type],
-                    )
-            edge_index_dict[edge_type] = torch.tensor(edge_index, dtype=torch.int64).T
+                    # determine which object node type this edge concerns, its found opposite to the `event_node_type`
+                    object_node_type_position = edge_type[::-1].index(event_node_type)
+                    object_node_type = edge_type[object_node_type_position]
+                    if object_node_type in object_node_map:
+                        edge_index = self.__get_edge_index_for_edge_type(
+                            feature_graph=feature_graph,
+                            edge_type=edge_type,
+                            event_node_map=event_node_index_map,
+                            object_type=object_node_type,
+                            object_type_node_map=object_node_map[object_node_type],
+                        )
+                    elif pad_missing_object_type:
+                        # if object type not related to current process execution graph, pad missing object type
+                        event_node_id = event_node_index_map[
+                            feature_graph.nodes[-1].event_id
+                        ]  # we connect last event with newly inserted object
+                        object_node_id = 0  # should be 0, as no objects of this type exist yet, and we will add/pad in the first
+                        # define edge_index in the correct direction, based on the given edge_type
+                        if object_node_type_position:
+                            edge_index = [(event_node_id, object_node_id)]
+                        else:
+                            edge_index = [(object_node_id, event_node_id)]
+                    else:
+                        # if object type not related to current process execution graph, skip loop and try next object type
+                        continue
+                        # raise EdgeException(
+                        #     f"`object_node_type` '{object_node_type}' not in `object_node_map.keys()` {object_node_map.keys()}"
+                        # )
+                edge_index_dict[edge_type] = torch.tensor(
+                    edge_index, dtype=torch.int64
+                ).T
         # use: self.objects_data['app_node_map'] for mapping oid to id in heterodata[ot]
         # use: event_node_index_map for mapping event_id to id in heterodata['event']
 
         return edge_index_dict
+
+    def _align_hetero_graph_edges(
+        self,
+        data: HeteroData,
+    ) -> HeteroData:
+        """Method that ensures each object-event relation is not 'out of bound' in terms of object index."""
+        for edge_type in data.edge_types:
+            if edge_type.count(self.event_node_type) == 1:
+                object_node_type_position = edge_type[::-1].index(self.event_node_type)
+                object_node_type = edge_type[object_node_type_position]
+                edge_aligned = (
+                    data[object_node_type].num_nodes
+                    == data[object_node_type].x.shape[0]
+                    == int(data[edge_type].edge_index[0].max() + 1)
+                )
+                if not edge_aligned:
+                    data[edge_type].edge_index = self.__correct_object_event_edge_index(
+                        data[edge_type].edge_index,
+                        data[object_node_type].num_nodes,
+                        object_node_type_position,
+                    )
+        return data
+
+    def __correct_object_event_edge_index(
+        self,
+        edge_index: torch.Tensor,
+        num_object_nodes: int,
+        object_node_type_position: int,
+    ) -> torch.Tensor:
+        object_id_row = int(bool(object_node_type_position))
+        event_id_row = int(not (bool(object_node_type_position)))
+        allowed_object_indices = torch.arange(num_object_nodes)
+        mask = ~torch.isin(edge_index[object_id_row], allowed_object_indices)
+        edge_index[event_id_row, mask] = edge_index[object_id_row, mask]
+        edge_index[object_id_row, mask] = allowed_object_indices[-1]
+        return edge_index
 
     def __set_to_split_dict(
         self, unique_objects: set[tuple[str, str]]
@@ -450,37 +600,51 @@ class HOEG(EFG):
         feature_graph: FeatureStorage.Feature_Graph,
         edge_type: tuple[str, str, str],
         event_node_map: dict[int, int],
-        object_node_map: dict[str, int],
+        object_type: str,
+        object_type_node_map: dict[str, int],
     ) -> list[tuple[int, int]]:
-        flatten = lambda nested_list: [
-            item for sublist in nested_list for item in sublist
-        ]
-
         # From all nodes in the feature graph:
         # get tuples that indicate which event_id interacts with which application/offer (oid from the OCEL)
-        edge_list = [
-            flatten(
-                [
-                    self.__get_event_object_edges(node, edge_type)
-                    for node in feature_graph.nodes
-                ]
-            )
-        ][0]
+        event_object_edges = chain.from_iterable(
+            # flattens edge list into a generator chain
+            [
+                self.__get_event_object_edges(
+                    event_node=node, object_node_type=object_type
+                )
+                for node in feature_graph.nodes
+            ]
+        )
         # Map event_id to node_index for the application/offer node type
         edge_index = []
-        for edge in edge_list:
-            if edge[1] in object_node_map:
-                edge_index.append((event_node_map[edge[0]], object_node_map[edge[1]]))
+        for edge in event_object_edges:
+            # edge: (eid, oid)
+            if edge[1] in object_type_node_map:
+                if object_type == edge_type[-1]:
+                    constructed_edge = (
+                        event_node_map[edge[0]],
+                        object_type_node_map[edge[1]],
+                    )
+                else:
+                    constructed_edge = (
+                        object_type_node_map[edge[1]],
+                        event_node_map[edge[0]],
+                    )
+                edge_index.append(constructed_edge)
             else:
                 # logging.debug(f"in self.__get_edge_index_for_edge_type()")
                 # logging.debug(f"fg.pexec_id: {self.DEBUG_fg_idx}")
                 # logging.debug(edge)
-                # logging.debug(object_node_map)
+                # logging.debug(object_type_node_map)
                 edge_index.append(
-                    (event_node_map[edge[0]], 0)
-                )  # cs BUG: sometimes there is a mismatch between edge[1] and keys in `object_node_map`
+                    (event_node_map[edge[0]], 0)  # 29aug: yes, for CS its always 0
+                )  # CS BUG: sometimes there is a mismatch between edge[1] and keys in `object_type_node_map`
+                if self._debug and False:
+                    warnings.warn(
+                        f"`edge[1]` (OCEL oid) {edge[1]} not found in `object_type_node_map` {object_type_node_map}",
+                        EdgeWarning,
+                    )
         # edge_index = [
-        #     (event_node_map[edge[0]], object_node_map[edge[1]]) for edge in edge_list
+        #     (event_node_map[edge[0]], object_type_node_map[edge[1]]) for edge in event_object_edges
         # ]
         return edge_index
 
@@ -496,15 +660,14 @@ class HOEG(EFG):
     def __get_event_object_edges(
         self,
         event_node: FeatureStorage.Feature_Graph.Node,
-        edge_type: tuple[str, str, str],
-    ) -> list[tuple[int, int]]:
-        node_type = edge_type[2]
-        edges = [
+        # edge_type: tuple[str, str, str],
+        object_node_type: str,
+    ) -> list[tuple[int, str]]:
+        return [
             (event_node.event_id, oid)
             for ot, oid in event_node.objects
-            if ot == node_type
+            if ot == object_node_type
         ]
-        return edges
 
     def __get_event_node_index_mapping(
         self, feature_graph: FeatureStorage.Feature_Graph
@@ -514,6 +677,13 @@ class HOEG(EFG):
             id: i
             for i, id in enumerate([node.event_id for node in feature_graph.nodes])
         }
+
+    def __custom_verbosity_enumerate(self, iterable, miniters: int):
+        """Returns either just the enumerated iterable, or one with the progress tracked."""
+        if self._verbosity:
+            return tqdm(enumerate(iterable), miniters=miniters)
+        else:
+            return enumerate(iterable)
 
     def __get_graph_filename(self, graph_idx: int) -> str:
         filename = f"{self._base_filename}_{graph_idx}.{self._file_extension}"
