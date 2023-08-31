@@ -18,18 +18,21 @@ from typing import Any, Callable
 # Data handling
 import numpy as np
 import ocpa.algo.predictive_monitoring.factory as feature_factory
+
 # PyG
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as O
+
 # PyTorch TensorBoard support
 import torch.utils.tensorboard
 import torch_geometric.nn as pygnn
 import torch_geometric.transforms as T
+
 # Object centric process mining
-from ocpa.algo.predictive_monitoring.obj import \
-    Feature_Storage as FeatureStorage
+from ocpa.algo.predictive_monitoring.obj import Feature_Storage as FeatureStorage
+
 # # Simple machine learning models, procedure tools, and evaluation metrics
 # from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -43,12 +46,13 @@ import utilities.hetero_data_utils as hetero_data_utils
 import utilities.hetero_evaluation_utils as hetero_evaluation_utils
 import utilities.hetero_training_utils as hetero_training_utils
 import utilities.torch_utils
+
 # Custom imports
 # from loan_application_experiment.feature_encodings.efg.efg import EFG
 from experiments.hoeg import HOEG
+
 # from importing_ocel import build_feature_storage, load_ocel, pickle_feature_storage
-from models.definitions.geometric_models import (GraphModel,
-                                                 HeteroHigherOrderGNN)
+from models.definitions.geometric_models import GraphModel, HeteroHigherOrderGNN
 
 # Print system info
 utilities.torch_utils.print_system_info()
@@ -66,7 +70,7 @@ cs_hoeg_config = {
     "RANDOM_SEED": 42,
     "EPOCHS": 32,
     "target_node_type": "event",
-    "object_types":["krs", "krv", "cv"],
+    "object_types": ["krs", "krv", "cv"],
     "meta_data": (
         ["event", "krs", "krv", "cv"],
         [
@@ -92,15 +96,15 @@ cs_hoeg_config = {
 
 # CONFIGURATION ADAPTATIONS may be set here
 # cs_hoeg_config["early_stopping"] = 4
-cs_hoeg_config['skip_cache'] = True
-cs_hoeg_config['verbose'] = False
+cs_hoeg_config["skip_cache"] = True
+cs_hoeg_config["verbose"] = False
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     filename="logging/debug.log",
 )
-logging.critical("-" * 32 + ' TEST CS HOEG ' + "-" * 32)
+logging.critical("-" * 32 + " TEST CS HOEG " + "-" * 32)
 
 # %%
 # DATA PREPARATION
@@ -111,14 +115,14 @@ transformations = [
 ]
 # Get data and dataloaders
 ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
-    storage_path= cs_hoeg_config["STORAGE_PATH"],
-    split_feature_storage_file= cs_hoeg_config["SPLIT_FEATURE_STORAGE_FILE"],
+    storage_path=cs_hoeg_config["STORAGE_PATH"],
+    split_feature_storage_file=cs_hoeg_config["SPLIT_FEATURE_STORAGE_FILE"],
     objects_data_file=cs_hoeg_config["OBJECTS_DATA_DICT"],
-    event_node_label_key= cs_hoeg_config["events_target_label"],
-    object_nodes_label_key=cs_hoeg_config['objects_target_label'],
-    edge_types=cs_hoeg_config['meta_data'][1],
-    object_node_types=cs_hoeg_config['object_types'],
-    graph_level_target = False,
+    event_node_label_key=cs_hoeg_config["events_target_label"],
+    object_nodes_label_key=cs_hoeg_config["objects_target_label"],
+    edge_types=cs_hoeg_config["meta_data"][1],
+    object_node_types=cs_hoeg_config["object_types"],
+    graph_level_target=False,
     transform=T.Compose(transformations),
     train=True,
     val=True,
@@ -165,7 +169,9 @@ print("Training started, progress available in Tensorboard")
 torch.cuda.empty_cache()
 
 timestamp = datetime.now().strftime("%Y%m%d_%Hh%Mm")
-model_path_base = f"{cs_hoeg_config['model_output_path']}/{str(model).split('(')[0]}_{timestamp}"
+model_path_base = (
+    f"{cs_hoeg_config['model_output_path']}/{str(model).split('(')[0]}_{timestamp}"
+)
 
 best_state_dict_path = hetero_training_utils.run_training_hetero(
     target_node_type=cs_hoeg_config["target_node_type"],
@@ -209,5 +215,3 @@ with open(os.path.join(model_path_base, "evaluation_report.json"), "w") as file_
 # Print MAE results
 print(model_path_base)
 print(evaluation_dict)
-
-
