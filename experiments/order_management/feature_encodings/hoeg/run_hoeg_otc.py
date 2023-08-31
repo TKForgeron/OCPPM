@@ -2,54 +2,28 @@
 # DEPENDENCIES
 # Python native
 import functools
-import json
-import pickle
-import random
-from copy import copy
-from datetime import datetime
-from pprint import pprint
-from statistics import median as median
-from sys import platform
-from typing import Any, Callable, Union
 
 # Data handling
-import numpy as np
 import ocpa.algo.predictive_monitoring.factory as feature_factory
+
 # PyG
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as O
+
 # PyTorch TensorBoard support
-import torch.utils.tensorboard
-import torch_geometric.nn as pygnn
 import torch_geometric.transforms as T
-# Object centric process mining
-from ocpa.algo.predictive_monitoring.obj import \
-    Feature_Storage as FeatureStorage
-# # Simple machine learning models, procedure tools, and evaluation metrics
-# from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from torch import tensor
-from torch.utils.tensorboard.writer import SummaryWriter
-# Custom imports
-# from loan_application_experiment.feature_encodings.efg.efg import EFG
 from torch_geometric.data import HeteroData
-from torch_geometric.loader import DataLoader
-from tqdm import tqdm
 
 import utilities.torch_utils
-from experiments.hoeg import HOEG
-# from importing_ocel import build_feature_storage, load_ocel, pickle_feature_storage
-from models.definitions.geometric_models import (GraphModel,
-                                                 HeteroHigherOrderGNN)
-from utilities import (evaluation_utils, hetero_data_utils,
-                       hetero_evaluation_utils, hetero_experiment_utils,
-                       hetero_training_utils)
+
+# Custom imports
+from models.definitions.geometric_models import HigherOrderGNN
+from utilities import hetero_data_utils, hetero_experiment_utils
 
 # Print system info
 utilities.torch_utils.print_system_info()
 utilities.torch_utils.print_torch_info()
+
 
 # INITIAL CONFIGURATION
 otc_hoeg_config = {
@@ -59,6 +33,7 @@ otc_hoeg_config = {
     "OBJECTS_DATA_DICT": "otc_ofg+oi_graph+item_node_map+order_node_map+packages_node_map.pkl",
     "events_target_label": (feature_factory.EVENT_REMAINING_TIME, ()),
     "objects_target_label": "@@object_lifecycle_duration",
+    "graph_level_target": False,
     "regression_task": True,
     "target_node_type": "event",
     "object_types": ["item", "order", "package"],
@@ -66,14 +41,14 @@ otc_hoeg_config = {
         ["event", "item", "order", "package"],
         [
             ("event", "follows", "event"),
-            ("event", "interacts", "order"),
-            ("event", "interacts", "item"),
-            ("event", "interacts", "package"),
+            ("order", "interacts", "event"),
+            ("item", "interacts", "event"),
+            ("package", "interacts", "event"),
         ],
     ),
     "BATCH_SIZE": 16,
     "RANDOM_SEED": 42,
-    "EPOCHS": 32,
+    "EPOCHS": 30,
     "early_stopping": 4,
     "hidden_dim": 256,
     "optimizer": O.Adam,
@@ -98,12 +73,9 @@ otc_hoeg_config = {
 # %%
 # DATA PREPARATION
 transformations = [
-    hetero_data_utils.ToUndirected(
-        exclude_edge_types=[("event", "follows", "event")]
-    ),  # Convert heterogeneous graphs to undirected graphs, but exclude event-event relations
-    # T.ToUndirected(),  # Convert the graphs to undirected graphs
+    hetero_data_utils.AddObjectSelfLoops(),  # Prepares object-object relations, which are filled when `T.AddSelfLoops()` is executed
     T.AddSelfLoops(),  # Add self-loops to the graphs
-    T.NormalizeFeatures(),  # Normalize node features of the graphs
+    # T.NormalizeFeatures(),  # Normalize node features of the graphs
 ]
 # Get data and dataloaders
 ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
@@ -120,12 +92,13 @@ ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
     val=True,
     test=True,
     skip_cache=otc_hoeg_config["skip_cache"],
+    generator=torch.Generator().manual_seed(otc_hoeg_config["RANDOM_SEED"]),
 )
-
-# %%
 # Update meta data (it has changed after applying `transformations`)
-otc_hoeg_config["meta_data"] = ds_val[0].metadata()
-# print_hetero_dataset_summaries(ds_train, ds_val, ds_test)
+for data in ds_val:
+    if data.metadata() != otc_hoeg_config["meta_data"]:
+        otc_hoeg_config["meta_data"] = data.metadata()
+        break
 (
     train_loader,
     val_loader,
@@ -143,16 +116,18 @@ otc_hoeg_config["meta_data"] = ds_val[0].metadata()
 )
 
 # %%
+print()
+print("Running hyperparameter tuning process for HOEG on Order Management OCEL")
+
 otc_hoeg_config["verbose"] = False
-otc_hoeg_config["squeeze"] = True
-otc_hoeg_config["model_output_path"] = "models/OTC/hoeg/exp_v1"
+otc_hoeg_config["model_output_path"] = "models/OTC/hoeg/exp_v3/no_subgraph_sampling"
 
 lr_range = [0.01, 0.001]
 hidden_dim_range = [8, 16, 24, 32, 48, 64, 128, 256]
 for lr in lr_range:
     for hidden_dim in hidden_dim_range:
         hetero_experiment_utils.run_hoeg_experiment_configuration(
-            HeteroHigherOrderGNN,
+            HigherOrderGNN,
             lr=lr,
             hidden_dim=hidden_dim,
             train_loader=train_loader,
