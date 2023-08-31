@@ -1,42 +1,24 @@
 # %%
-import os
-
-go_up_n_directories = lambda path, n: os.path.abspath(
-    os.path.join(*([os.path.dirname(path)] + [".."] * n))
-)
-os.chdir(go_up_n_directories(os.getcwd(), 3))  # run once (otherwise restart kernel)
-print(os.getcwd())
-
-# %%
 # DEPENDENCIES
 # Python native
 import functools
-import json
-import os
-from datetime import datetime
-from statistics import median as median
 
 # Data handling
 import ocpa.algo.predictive_monitoring.factory as feature_factory
+
 # PyG
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as O
+
 # PyTorch TensorBoard support
-import torch.utils.tensorboard
-import torch_geometric.nn as pygnn
 import torch_geometric.transforms as T
 from torch_geometric.data import HeteroData
 
 import utilities.torch_utils
-from experiments.hoeg import HOEG
+
 # Custom imports
-from models.definitions.geometric_models import (GraphModel,
-                                                 HeteroHigherOrderGNN)
-from utilities import (evaluation_utils, hetero_data_utils,
-                       hetero_evaluation_utils, hetero_experiment_utils,
-                       hetero_training_utils)
+from models.definitions.geometric_models import HigherOrderGNN
+from utilities import hetero_data_utils, hetero_experiment_utils
 
 # Print system info
 utilities.torch_utils.print_system_info()
@@ -50,20 +32,21 @@ bpi17_hoeg_config = {
     "OBJECTS_DATA_DICT": "bpi17_ofg+oi_graph+app_node_map+off_node_map.pkl",
     "events_target_label": (feature_factory.EVENT_REMAINING_TIME, ()),
     "objects_target_label": "@@object_lifecycle_duration",
+    "graph_level_target": False,
     "target_node_type": "event",
     "object_types": ["application", "offer"],
     "meta_data": (
         ["event", "application", "offer"],
         [
             ("event", "follows", "event"),
-            ("event", "interacts", "application"),
-            ("event", "interacts", "offer"),
+            ("application", "interacts", "event"),
+            ("offer", "interacts", "event"),
         ],
     ),
     "BATCH_SIZE": 16,
     "RANDOM_SEED": 42,
-    "EPOCHS": 32,
-    "early_stopping": 8,
+    "EPOCHS": 30,
+    "early_stopping": 4,
     "hidden_dim": 32,
     "optimizer": O.Adam,
     "optimizer_settings": {
@@ -90,10 +73,11 @@ bpi17_hoeg_config = {
 # %%
 # DATA PREPARATION
 transformations = [
-    hetero_data_utils.ToUndirected(
-        exclude_edge_types=[("event", "follows", "event")]
-    ),  # Convert heterogeneous graphs to undirected graphs, but exclude event-event relations
+    # hetero_data_utils.ToUndirected(
+    #     exclude_edge_types=[("event", "follows", "event")]
+    # ),  # Convert heterogeneous graphs to undirected graphs, but exclude event-event relations
     # T.ToUndirected(),  # Convert the graph to an undirected graph   # this was in HOEG.py in v0.18
+    hetero_data_utils.AddObjectSelfLoops(),  # Prepares object-object relations, which are filled when `T.AddSelfLoops()` is executed
     T.AddSelfLoops(),  # Add self-loops to the graph                # this was in HOEG.py in v0.18
     T.NormalizeFeatures(),  # Normalize node features of the graph  # this was in HOEG.py in v0.18
 ]
@@ -113,9 +97,10 @@ ds_train, ds_val, ds_test = hetero_data_utils.load_hetero_datasets(
     test=True,
     skip_cache=bpi17_hoeg_config["skip_cache"],
 )
-bpi17_hoeg_config["meta_data"] = ds_val[0].metadata()
-# hetero_data_utils.print_hetero_dataset_summaries(ds_train, ds_val,ds_test)
-# %%
+for data in ds_val:
+    if data.metadata() != bpi17_hoeg_config["meta_data"]:
+        bpi17_hoeg_config["meta_data"] = data.metadata()
+        break
 (
     train_loader,
     val_loader,
@@ -135,17 +120,18 @@ bpi17_hoeg_config["meta_data"] = ds_val[0].metadata()
 
 # %%
 # FINAL HYPERPARAMETER TUNING
+print()
+print("Running hyperparameter tuning process for HOEG on Loan Application OCEL")
+
 bpi17_hoeg_config["verbose"] = False
-bpi17_hoeg_config["model_output_path"] = "models/BPI17/hoeg/exp_v2"
+bpi17_hoeg_config["model_output_path"] = "models/BPI17/hoeg/exp_v3"
 
 lr_range = [0.01, 0.001]
 hidden_dim_range = [8, 16, 24, 32, 48, 64, 128, 256]
-# lr_range = [0.001]
-# hidden_dim_range = [128, 256]
 for lr in lr_range:
     for hidden_dim in hidden_dim_range:
         hetero_experiment_utils.run_hoeg_experiment_configuration(
-            HeteroHigherOrderGNN,
+            HigherOrderGNN,
             lr=lr,
             hidden_dim=hidden_dim,
             train_loader=train_loader,
