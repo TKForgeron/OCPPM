@@ -1,0 +1,36 @@
+{
+  "model_output_path": "models/OTC/hoeg/exp_v3/no_subgraph_sampling",
+  "STORAGE_PATH": "data/OTC/feature_encodings/HOEG/hoeg",
+  "SPLIT_FEATURE_STORAGE_FILE": "OTC_split_[C2_P2_P3_O3_eas].fs",
+  "OBJECTS_DATA_DICT": "otc_ofg+oi_graph+item_node_map+order_node_map+packages_node_map.pkl",
+  "events_target_label": "('event_remaining_time', ())",
+  "objects_target_label": "@@object_lifecycle_duration",
+  "graph_level_target": false,
+  "regression_task": true,
+  "target_node_type": "event",
+  "object_types": [
+    "item",
+    "order",
+    "package"
+  ],
+  "meta_data": "(['event', 'item', 'order', 'package'], [('event', 'follows', 'event'), ('order', 'interacts', 'event'), ('item', 'interacts', 'event'), ('package', 'interacts', 'event'), ('package', 'updates', 'package'), ('order', 'updates', 'order'), ('item', 'updates', 'item')])",
+  "BATCH_SIZE": 16,
+  "RANDOM_SEED": 42,
+  "EPOCHS": 30,
+  "early_stopping": 4,
+  "hidden_dim": 256,
+  "optimizer": "<class 'torch.optim.adam.Adam'>",
+  "optimizer_settings": {
+    "lr": 0.001,
+    "betas": "(0.9, 0.999)",
+    "eps": 1e-08,
+    "weight_decay": 0,
+    "amsgrad": false
+  },
+  "loss_fn": "L1Loss()",
+  "verbose": false,
+  "skip_cache": false,
+  "device": "cuda",
+  "squeeze": true,
+  "track_time": true
+}

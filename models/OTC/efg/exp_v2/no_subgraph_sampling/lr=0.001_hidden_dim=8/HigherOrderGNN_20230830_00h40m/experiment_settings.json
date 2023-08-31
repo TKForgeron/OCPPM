@@ -1,0 +1,30 @@
+{
+  "model_output_path": "models/OTC/efg/exp_v2/no_subgraph_sampling",
+  "STORAGE_PATH": "data/OTC/feature_encodings/EFG/efg",
+  "SPLIT_FEATURE_STORAGE_FILE": "OTC_split_[C2_P2_P3_O3_eas].fs",
+  "TARGET_LABEL": "('event_remaining_time', ())",
+  "regression_task": true,
+  "graph_level_prediction": false,
+  "features_dtype": "torch.float32",
+  "target_dtype": "torch.float32",
+  "SUBGRAPH_SIZE": 4,
+  "BATCH_SIZE": 16,
+  "RANDOM_SEED": 42,
+  "EPOCHS": 30,
+  "early_stopping": 4,
+  "hidden_dim": 8,
+  "optimizer": "<class 'torch.optim.adam.Adam'>",
+  "optimizer_settings": {
+    "lr": 0.001,
+    "betas": "(0.9, 0.999)",
+    "eps": 1e-08,
+    "weight_decay": 0,
+    "amsgrad": false
+  },
+  "loss_fn": "L1Loss()",
+  "device": "cuda:0",
+  "verbose": false,
+  "track_time": true,
+  "skip_cache": false,
+  "squeeze": true
+}

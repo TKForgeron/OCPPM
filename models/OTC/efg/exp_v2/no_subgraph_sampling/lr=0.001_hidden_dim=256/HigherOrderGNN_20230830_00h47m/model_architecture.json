@@ -1,0 +1,11 @@
+{
+  "HigherOrderGNN": {
+    "pre_layers": "ModuleList()",
+    "convs": "ModuleList(",
+    "0": "Linear(256, 1, bias=True)",
+    "1": "PReLU(num_parameters=1)",
+    "acts": "ModuleList(",
+    "post_layers": "ModuleList("
+  },
+  "Number of parameters": 142083
+}
