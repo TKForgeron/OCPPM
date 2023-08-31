@@ -140,7 +140,7 @@ def create_exp2a_plot(
     ticks_fontsize = (
         fontsize * 0.9 if type(fontsize) == int or type(fontsize) == float else fontsize
     )
-    plt.title(f"Performance Distribution on {dataset} OCEL", fontsize=title_fontsize)
+    plt.title(f"Encoding Performance\nDistribution on {dataset if dataset!='Financial Institution' else 'FI'} OCEL", fontsize=title_fontsize)
     plt.xticks(
         [1, 2, 3, 4, 5, 6],
         ["", encoding_types[0].upper(), "", "", encoding_types[1].upper(), ""],
