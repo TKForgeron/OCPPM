@@ -1,0 +1,36 @@
+{
+  "model_output_path": "models/CS/hoeg/exp_v3",
+  "STORAGE_PATH": "data/CS/feature_encodings/HOEG/hoeg",
+  "SPLIT_FEATURE_STORAGE_FILE": "CS_split_[C2_P2_P3_O3_eas].fs",
+  "OBJECTS_DATA_DICT": "cs_ofg+oi_graph+krs_node_map+krv_node_map+cv_node_map.pkl",
+  "events_target_label": "('event_remaining_time', ())",
+  "objects_target_label": "@@object_lifecycle_duration",
+  "graph_level_target": false,
+  "regression_task": true,
+  "target_node_type": "event",
+  "object_types": [
+    "krs",
+    "krv",
+    "cv"
+  ],
+  "meta_data": "(['event', 'krs', 'krv', 'cv'], [('event', 'follows', 'event'), ('krs', 'interacts', 'event'), ('krv', 'interacts', 'event'), ('cv', 'interacts', 'event'), ('cv', 'updates', 'cv'), ('krv', 'updates', 'krv'), ('krs', 'updates', 'krs')])",
+  "BATCH_SIZE": 16,
+  "RANDOM_SEED": 42,
+  "EPOCHS": 30,
+  "early_stopping": 4,
+  "optimizer": "<class 'torch.optim.adam.Adam'>",
+  "optimizer_settings": {
+    "lr": 0.01,
+    "betas": "(0.9, 0.999)",
+    "eps": 1e-08,
+    "weight_decay": 0,
+    "amsgrad": false
+  },
+  "loss_fn": "L1Loss()",
+  "verbose": false,
+  "skip_cache": false,
+  "device": "cuda",
+  "squeeze": true,
+  "track_time": true,
+  "hidden_dim": 24
+}

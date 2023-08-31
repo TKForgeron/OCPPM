@@ -1,0 +1,8 @@
+{
+  "AdamsGCN": {
+    "conv1": "GCNConv(-1, 24)",
+    "conv2": "GCNConv(-1, 24)",
+    "lin_out": "Linear(24, 1, bias=True)"
+  },
+  "Number of parameters": 1009
+}

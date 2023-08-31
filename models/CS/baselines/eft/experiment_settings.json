@@ -1,0 +1,14 @@
+{
+  "experiment_settings": {
+    "num_boost_round": 100,
+    "stopping_rounds": 100,
+    "num_threads": 4,
+    "objective": "regression",
+    "metric": [
+      "mse",
+      "mae",
+      "mape",
+      "rmse"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "GraphModule": {
+    "convs": "ModuleList(",
+    "0": "ModuleDict(",
+    "event__follows__event": "GraphConv(-1, 16)",
+    "krs__interacts__event": "GraphConv(-1, 16)",
+    "krv__interacts__event": "GraphConv(-1, 16)",
+    "cv__interacts__event": "GraphConv(-1, 16)",
+    "cv__updates__cv": "GraphConv(-1, 16)",
+    "krv__updates__krv": "GraphConv(-1, 16)",
+    "krs__updates__krs": "GraphConv(-1, 16)",
+    "1": "ModuleDict(",
+    "acts": "ModuleList(",
+    "event": "Linear(16, 1, bias=True)",
+    "krs": "Linear(16, 1, bias=True)",
+    "krv": "Linear(16, 1, bias=True)",
+    "cv": "Linear(16, 1, bias=True)",
+    "post_layers": "ModuleList(",
+    "pre_layers": "ModuleList()"
+  },
+  "Number of parameters": 7964
+}
