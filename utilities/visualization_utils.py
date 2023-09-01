@@ -58,19 +58,22 @@ def create_exp1_encoding_plot(
         )
         axis.semilogx(no_hds, mae_scores, marker="o", label="lr=0.001", color=RED)
 
-        axis.set_title(f"{encoding.upper()} on {dataset} OCEL", size=fontsize * 1.1)
+        axis.set_title(
+            f"{encoding.upper()} on {dataset if dataset!='Financial Institution' else 'FI'} OCEL",
+            size=fontsize * 1.1,
+        )
         axis.set_xlabel("Hidden Dimensions", fontsize=fontsize)
 
         # Create formatted tick labels
         tick_labels = [f"{hds}" for hds, params in zip(no_hds, no_params)]
-        
+
         axis.set_xticks(no_hds)
         axis.set_xticklabels(
             tick_labels, fontsize=fontsize * 0.9
         )  # Set the formatted tick labels
         axis.tick_params(axis="y", labelsize=fontsize * 0.9)
 
-        axis.legend(fontsize=fontsize*0.85)
+        axis.legend(fontsize=fontsize * 0.85)
         axis.grid(True)
 
     plt.tight_layout()
@@ -85,7 +88,7 @@ def create_exp2a_plot(
     encoding_types: list[str] = ["efg", "hoeg"],
     figsize: tuple[int, int] = (20, 5),
     fontsize: Union[float, int] = 15,
-    legend_location:Optional[str]=None,
+    legend_location: Optional[str] = None,
     save: bool = True,
 ) -> None:
     enc_perf_on_dataset = encoding_performances[dataset]
@@ -140,7 +143,10 @@ def create_exp2a_plot(
     ticks_fontsize = (
         fontsize * 0.9 if type(fontsize) == int or type(fontsize) == float else fontsize
     )
-    plt.title(f"Encoding Performance\nDistribution on {dataset if dataset!='Financial Institution' else 'FI'} OCEL", fontsize=title_fontsize)
+    plt.title(
+        f"Encoding Performance\nDistribution on {dataset if dataset!='Financial Institution' else 'FI'} OCEL",
+        fontsize=title_fontsize,
+    )
     plt.xticks(
         [1, 2, 3, 4, 5, 6],
         ["", encoding_types[0].upper(), "", "", encoding_types[1].upper(), ""],
@@ -149,7 +155,7 @@ def create_exp2a_plot(
     plt.ylabel("Mean Absolute Error", fontsize=fontsize)
     plt.yticks(fontsize=ticks_fontsize)
     plt.tight_layout()
-    plt.legend(list(splits.keys()), fontsize=legend_fontsize,loc=legend_location)
+    plt.legend(list(splits.keys()), fontsize=legend_fontsize, loc=legend_location)
     if save:
         plt.savefig(
             f"visualizations/plots/exp2_encoding_type/performance/{dataset}.pdf"
@@ -231,7 +237,7 @@ def get_exp2b_plot(
     plt.xlabel("Epochs", fontsize=fontsize)
     plt.ylabel("Mean Absolute Error", fontsize=fontsize)
     plt.title(
-        f"Learning Curves of Best Performing Models on {dataset} OCEL",
+        f"Learning Curves of Best Performing Models on {dataset if dataset!='Financial Institution' else 'FI'} OCEL",
         fontsize=title_fontsize,
     )
     plt.legend(fontsize=legend_fontsize)
