@@ -7,13 +7,11 @@ Object-centric predictive process monitoring research project. The purpose of th
 
 
 ## TODO
-- add preprocessing subsection:
-    - add preprocessing section for BPI17 and OTC
-    - update OCEL summary for BPI17
-    - add data description for OTC
-    - update OCEL summary for FI
 - Overall Thesis
-    - Drop OFG, retaining flow
+    - [01/09] Drop OFG, retaining flow
+    - check figure placement    
+- Abstract
+    - Write, just write it.
 - 1 Introduction
     - [08/08] Add research goal to introduction
 - 2 Theoretical Background
@@ -23,17 +21,30 @@ Object-centric predictive process monitoring research project. The purpose of th
     - [28/08] Update explanation of Adams' EFG by moving parts of 5.1 into Section 3.2.2. 
     - [28/08] Update Section 3.2.2 to use more hedging scrutinizing Adams' framework paper
     - [31/08] Update Sections 3.2 and 3.3, for correctness, clarity, and flow
-    - Recreate Figure 9 (EFG by Adams with features)
+    - [01/09] Recreate Figure 9 (EFG by Adams with features)
 - 4 Addressing the Current Limitations
     - [31/08] Update Fig. 10, Tab. 7
     - [31/08] Update overall flow, and usage of 'flattening', 'aggregates', 'native' and usage of 'criteria', 'characteristics' and 'capabilities'.
 - 5 Experimental Setup
     - [28/08] Update Section 5.1 (EFG config)
-    - 
+    - [01/09] Update flow (with OFG removed)
+    - add somewhere that we use PyTorch Geometric
+    - add preprocessing subsection:
+        - add preprocessing section for BPI17 and OTC
+        - update OCEL summary for BPI17
+        - add data description for OTC
+        - update OCEL summary for FI
 - 6 Results
-    - 
+    - align violin plots with learning curve plots in terms of size
+    - [01/09] write subsections about the 3 experiments
+    - [01/09] Recreate, update, and check figures and tables
 - 7 Discussion
-    - HOEG information leakage experiment
-    -
+    - [02/09] Go by each dataset to scrutinize and interpret the findings (across the 3 experiments)
+    - [02/09] Discuss information leakage issue, and recommendations and implications of HOEG configuration
+    - [02/09] Give synthesis of results (across the datasets)
 - 8 Conclusion
-    - 
+    - [02/09] Discuss possible directions future work
+    - [02/09] Summarize thesis
+    - [02/09] Answer RQs
+- Appendix
+    - learning curve of Adams et al. (2022)
