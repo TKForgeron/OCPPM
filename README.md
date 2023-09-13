@@ -28,16 +28,17 @@ Object-centric predictive process monitoring research project. The purpose of th
 - 5 Experimental Setup
     - [28/08] Update Section 5.1 (EFG config)
     - [01/09] Update flow (with OFG removed)
+    - [13/09] add preprocessing subsection:
+        - [12/09] add preprocessing section for BPI17 and OTC
+        - [12/09] update OCEL summary for BPI17
+        - [12/09] add data description for OTC
+        - ... [13/09] update OCEL summary and preprocessing/extraction for FI
     - add somewhere that we use PyTorch Geometric
-    - add preprocessing subsection:
-        - add preprocessing section for BPI17 and OTC
-        - update OCEL summary for BPI17
-        - add data description for OTC
-        - update OCEL summary for FI
 - 6 Results
-    - align violin plots with learning curve plots in terms of size
     - [01/09] write subsections about the 3 experiments
     - [01/09] Recreate, update, and check figures and tables
+    - align violin plots with learning curve plots in terms of size
+    - Explicitly note that the scales are not aligned, and argue this is okay as we intend to compare hyperparameter settings within each encoding and dataset, we don't compare encodings yet.
 - 7 Discussion
     - [02/09] Go by each dataset to scrutinize and interpret the findings (across the 3 experiments)
     - [02/09] Discuss information leakage issue, and recommendations and implications of HOEG configuration
@@ -47,4 +48,4 @@ Object-centric predictive process monitoring research project. The purpose of th
     - [02/09] Summarize thesis
     - [02/09] Answer RQs
 - Appendix
-    - learning curve of Adams et al. (2022)
+    - ... [13/09] Learning Curves of EFG-Based Models (my K-GNN, and Adams' GCN) with Subgraph Sampling on BPI17

@@ -163,6 +163,70 @@ def create_exp2a_plot(
     plt.show()
 
 
+def get_subgraph_sampling_learning_curves(
+    dataset: str,
+    model_colors: dict,
+    train_datas,
+    validation_datas,
+    line_styles=[(0, (3, 1, 1, 1)), "-"],
+    figsize: tuple[int, int] = (10, 6),
+    fontsize: Optional[Union[float, int]] = None,
+    save: bool = True,
+    output_file: Optional[str] = None,
+):
+    """All arguments should have the same length."""
+    plt.figure(figsize=figsize)  # Set the figure size
+    for model_color_map, train_data, validation_data, line_style in zip(
+        model_colors.items(), train_datas, validation_datas, line_styles
+    ):
+        # Plot Train Curve
+        plt.plot(
+            train_data["Step"],
+            train_data["Value"],
+            label=f"{model_color_map[0].upper()} Train Loss",
+            linestyle=line_style,
+            color=model_color_map[1][0],
+        )
+
+        # Plot Validation Curve
+        plt.plot(
+            validation_data["Step"],
+            validation_data["Value"],
+            label=f"{model_color_map[0].upper()} Validation Loss",
+            linestyle=line_style,
+            color=model_color_map[1][1],
+        )
+    # Customize plot
+    title_fontsize = (
+        fontsize * 1.1 if type(fontsize) == int or type(fontsize) == float else fontsize
+    )
+    legend_fontsize = (
+        fontsize * 0.75
+        if type(fontsize) == int or type(fontsize) == float
+        else fontsize
+    )
+    ticks_fontsize = (
+        fontsize * 0.9 if type(fontsize) == int or type(fontsize) == float else fontsize
+    )
+    plt.xlabel("Epochs", fontsize=fontsize)
+    plt.ylabel("Mean Absolute Error", fontsize=fontsize)
+    plt.title(
+        f"Learning Curves of EFG-Based Models with Subgraph Sampling on {dataset if dataset!='Financial Institution' else 'FI'} OCEL",
+        fontsize=title_fontsize,
+    )
+    plt.legend(fontsize=legend_fontsize)
+    plt.xticks(fontsize=ticks_fontsize)
+    plt.yticks(fontsize=fontsize)
+    plt.grid(True)
+    if save:
+        if output_file is None:
+            output_file = f"visualizations/plots/appendices/subgraph_sampling_learning_curves/bpi17/{'_vs_'.join(list(model_colors.keys()))}.pdf"
+        plt.savefig(output_file)
+
+    # Show the plot
+    plt.show()
+
+
 def get_exp2b_plot(
     dataset: str,
     data_base_path: str = "visualizations/data/learning_curves",
@@ -173,6 +237,7 @@ def get_exp2b_plot(
     figsize: tuple[int, int] = (10, 6),
     fontsize: Optional[Union[float, int]] = None,
     save: bool = True,
+    output_file: Optional[str] = None,
 ) -> None:
     # Read data from CSV files
     encodings = list(encoding_colors.keys())
@@ -245,9 +310,12 @@ def get_exp2b_plot(
     plt.yticks(fontsize=fontsize)
     plt.grid(True)
     if save:
-        plt.savefig(
-            f"visualizations/plots/exp2_encoding_type/learning_curve/{dataset}.pdf"
-        )
+        if output_file is None:
+            output_file = (
+                f"visualizations/plots/exp2_encoding_type/learning_curve/{dataset}.pdf"
+            )
+        plt.savefig(output_file)
+
     # Show the plot
     plt.show()
 
