@@ -91,6 +91,7 @@ def create_exp2a_plot(
     legend_location: Optional[str] = None,
     save: bool = True,
 ) -> None:
+    # prepare the data 
     enc_perf_on_dataset = encoding_performances[dataset]
     efg_pos = []
     efg_data = []
@@ -114,7 +115,9 @@ def create_exp2a_plot(
 
     data = efg_data + hoeg_data
     pos = efg_pos + hoeg_pos
-
+    
+    # create the violin plots
+    plt.figure(figsize=figsize)  # Set the figure size
     violin_split_colors = [YELLOW, ORANGE, RED] * 2
     violinplot = plt.violinplot(
         dataset=data, positions=pos, showextrema=True, showmedians=True, widths=0.25
@@ -144,9 +147,10 @@ def create_exp2a_plot(
         fontsize * 0.9 if type(fontsize) == int or type(fontsize) == float else fontsize
     )
     plt.title(
-        f"Encoding Performance\nDistribution on {dataset if dataset!='Financial Institution' else 'FI'} OCEL",
+        f"Encoding Performance Distribution on {dataset if dataset!='Financial Institution' else 'FI'} OCEL",
         fontsize=title_fontsize,
     )
+    plt.xlabel(" ", fontsize=fontsize)
     plt.xticks(
         [1, 2, 3, 4, 5, 6],
         ["", encoding_types[0].upper(), "", "", encoding_types[1].upper(), ""],
@@ -156,6 +160,7 @@ def create_exp2a_plot(
     plt.yticks(fontsize=ticks_fontsize)
     plt.tight_layout()
     plt.legend(list(splits.keys()), fontsize=legend_fontsize, loc=legend_location)
+    plt.grid(True)
     if save:
         plt.savefig(
             f"visualizations/plots/exp2_encoding_type/performance/{dataset}.pdf"
@@ -234,7 +239,7 @@ def get_exp2b_plot(
         "efg": (BURGUNDY, ORANGE),
         "hoeg": (DARKBLUE, BLUE),
     },
-    figsize: tuple[int, int] = (10, 6),
+    figsize: tuple[Union[int,float],Union[int,float]] = (10, 5.25),
     fontsize: Optional[Union[float, int]] = None,
     save: bool = True,
     output_file: Optional[str] = None,
