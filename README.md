@@ -1,5 +1,6 @@
-# OCPPM
-Object-centric predictive process monitoring research project. The purpose of this project is to handle object-centric event data as naturally as possible for machine learning purposes. This means that graph structures are retained and even learned from.
+# How Object-Centric is Object-Centric Predictive Process Monitoring?
+## Introducing Objects into Object-Centric Predictive Process Monitoring
+Object-centric predictive process monitoring research project. The purpose of this project is to handle object-centric event data as naturally as possible for machine learning purposes. In our solution we propose to construct heterogeneous object event graphs per trace to learn how to best include object information into predictions for events (using heterogeneous graph neural network architectures).
 
 ## Updating ocpa
 1. `pip uninstall ocpa`
@@ -24,6 +25,7 @@ Object-centric predictive process monitoring research project. The purpose of th
         - Refer to the definition of "object graph"
         - Make easier and more readable the use of object perspective and event perspective.
     - [15/09] Update RO to be more specific. "Flattening" now always takes the definition given in Def. 2.4, and negative implications due to the many-to-many relationships between EVENT and OBJECT (see Def. 2.1, Figure 2) are reffered to as "aggregations" (on objects). Aggregations performed on objects to gain event features are exemplified by Example 5 (features from "Object-centric process predictive analytics" by Galanti et al. [2023]) and Objects-perspective features from "A Framework for Extracting and Encoding Features from Object-Centric Event Data" by Adams et al. (2022).
+    - [18/09] Extend example to explain limitations of aggregating on objects
 - 2 Theoretical Background
     - [17/08] Update Section 2.2.4, explaining how HeteroGNN combines data of varying dimensionality
     - [31/08] Update Section 2.2.3, increasing clarity about what a feature vector/node feature vector/node vector is
@@ -49,15 +51,18 @@ Object-centric predictive process monitoring research project. The purpose of th
     - [15/09] Update Machine Learning Pipeline section
         - add somewhere that we use PyTorch Geometric
     - [15/09] Update chapter introduction
+    - [18/09] Restructure and update Section 5.3.1, to more clearly list the 3 baselines and discuss the configurations of them (mainly added HP config of GCN)
 - 6 Results
     - [01/09] write subsections about the 3 experiments
     - [01/09] Recreate, update, and check figures and tables
     - [14/09] Explicitly note that the scales are not aligned, and argue this is okay as we intend to compare hyperparameter settings within each encoding and dataset, we don't compare encodings yet.
     - [14/09] Align violin plots with learning curve plots in terms of size
+    - [18/09] Update baseline tables to exclude Adams reference and include GCN HP config and subgraph sampling information
 - 7 Discussion
     - [02/09] Go by each dataset to scrutinize and interpret the findings (across the 3 experiments)
     - [02/09] Discuss information leakage issue, and recommendations and implications of HOEG configuration
     - [02/09] Give synthesis of results (across the datasets)
+    - Revise language to be more formal (as it was written very quickly)
 - 8 Conclusion
     - [02/09] Discuss possible directions future work
     - [02/09] Summarize thesis
