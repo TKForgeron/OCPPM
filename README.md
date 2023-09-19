@@ -13,6 +13,8 @@ Object-centric predictive process monitoring research project. The purpose of th
     - Check figure and table placement (as LaTeX often has trouble handling large ones) and overall style.
     - Check usage of "flattening", "native", and "aggregation" AND "will"
     - Check spelling/grammar/flow of the whole document
+    - Check cardinality in all data models
+    - Remove all striked through text
 - Acknowledgements
     - Express my gratefulness towards those who helped me.
 - Abstract
@@ -39,6 +41,7 @@ Object-centric predictive process monitoring research project. The purpose of th
 - 4 Addressing the Current Limitations
     - [31/08] Update Fig. 10, Tab. 7
     - [31/08] Update overall flow, and usage of 'flattening', 'aggregates', 'native' and usage of 'criteria', 'characteristics' and 'capabilities'.
+    - [19/09] draft2 feedback, comment p.36: contrast HOEG vs EFG textually
     - Change the chapter title
 - 5 Experimental Setup
     - [28/08] Update Section 5.1 (EFG config)
@@ -52,17 +55,25 @@ Object-centric predictive process monitoring research project. The purpose of th
         - add somewhere that we use PyTorch Geometric
     - [15/09] Update chapter introduction
     - [18/09] Restructure and update Section 5.3.1, to more clearly list the 3 baselines and discuss the configurations of them (mainly added HP config of GCN)
+    - draft2 feedback, comment p.41: explicate lr and hd as HPs which I'll be tuning. give rationale
+    - draft2 feedback, comment p.42: give GCN label that we will refer to it using something like "subgraphed EFG"
+    - draft2 feedback, comment p.52: explain how hd can be tuned.
 - 6 Results
     - [01/09] write subsections about the 3 experiments
     - [01/09] Recreate, update, and check figures and tables
     - [14/09] Explicitly note that the scales are not aligned, and argue this is okay as we intend to compare hyperparameter settings within each encoding and dataset, we don't compare encodings yet.
     - [14/09] Align violin plots with learning curve plots in terms of size
     - [18/09] Update baseline tables to exclude Adams reference and include GCN HP config and subgraph sampling information
+    - draft2 feedback, comment p.52: recap why tuning lr and hd, and what hd's effect is
+    - draft2 feedback, comment p.56: add figures that group on metric score
+    - draft2 feedback, comment p.56: how to deal with MAPE
+    - draft2 feedback, comment p.60: split paragraph, such that explanation about why sg sampling does not work here is highlighted
 - 7 Discussion
     - [02/09] Go by each dataset to scrutinize and interpret the findings (across the 3 experiments)
     - [02/09] Discuss information leakage issue, and recommendations and implications of HOEG configuration
     - [02/09] Give synthesis of results (across the datasets)
     - Revise language to be more formal (as it was written very quickly)
+    - Add subsubsection headings for structure
 - 8 Conclusion
     - [02/09] Discuss possible directions future work
     - [02/09] Summarize thesis
