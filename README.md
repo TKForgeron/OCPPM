@@ -7,16 +7,17 @@ Object-centric predictive process monitoring research project. The purpose of th
 2. `pip install git+https://github.com/TKForgeron/ocpa`
 
 
-## TODO
+## Changelog
 - Overall Thesis
     - [01/09] Drop OFG, retaining flow
-    - Check figure and table placement (as LaTeX often has trouble handling large ones) and overall style.
-    - Check usage of "flattening", "native", and "aggregation" AND "will"
-    - Check spelling/grammar/flow of the whole document
-    - Check cardinality in all data models
-    - Remove all striked through text
+    - [19/09] Remove all striked through text
+    - [19/09] Replace GCN for EFG_ss
+    - [19/09] Check usage of "flattening", "native", and "aggregation" AND "will"
+    - [19/09] Check spelling/grammar/flow of the whole document
+    - [19/09] Check figure and table placement (as LaTeX often has trouble handling large ones) and overall style.
+    - [19/09] Check cardinality in all data models
 - Acknowledgements
-    - Express my gratefulness towards those who helped me.
+    - [19/09] Express my gratefulness towards those who helped me.
 - Abstract
     - [14/09 ] Write, just write it.
 - 1 Introduction
@@ -28,6 +29,7 @@ Object-centric predictive process monitoring research project. The purpose of th
         - Make easier and more readable the use of object perspective and event perspective.
     - [15/09] Update RO to be more specific. "Flattening" now always takes the definition given in Def. 2.4, and negative implications due to the many-to-many relationships between EVENT and OBJECT (see Def. 2.1, Figure 2) are reffered to as "aggregations" (on objects). Aggregations performed on objects to gain event features are exemplified by Example 5 (features from "Object-centric process predictive analytics" by Galanti et al. [2023]) and Objects-perspective features from "A Framework for Extracting and Encoding Features from Object-Centric Event Data" by Adams et al. (2022).
     - [18/09] Extend example to explain limitations of aggregating on objects
+    - [19/09] Give the two limitations discussed in intro terms: unavailability of objects, information loss due to object attribute aggregation 
 - 2 Theoretical Background
     - [17/08] Update Section 2.2.4, explaining how HeteroGNN combines data of varying dimensionality
     - [31/08] Update Section 2.2.3, increasing clarity about what a feature vector/node feature vector/node vector is
@@ -42,7 +44,7 @@ Object-centric predictive process monitoring research project. The purpose of th
     - [31/08] Update Fig. 10, Tab. 7
     - [31/08] Update overall flow, and usage of 'flattening', 'aggregates', 'native' and usage of 'criteria', 'characteristics' and 'capabilities'.
     - [19/09] draft2 feedback, comment p.36: contrast HOEG vs EFG textually
-    - Change the chapter title
+    - [19/09] Change the chapter title
 - 5 Experimental Setup
     - [28/08] Update Section 5.1 (EFG config)
     - [01/09] Update flow (with OFG removed)
@@ -52,28 +54,27 @@ Object-centric predictive process monitoring research project. The purpose of th
         - [12/09] add data description for OTC
         - [13/09] update OCEL summary and preprocessing/extraction for FI
     - [15/09] Update Machine Learning Pipeline section
-        - add somewhere that we use PyTorch Geometric
+        - [19/09] add somewhere that we use PyTorch Geometric
     - [15/09] Update chapter introduction
     - [18/09] Restructure and update Section 5.3.1, to more clearly list the 3 baselines and discuss the configurations of them (mainly added HP config of GCN)
-    - draft2 feedback, comment p.41: explicate lr and hd as HPs which I'll be tuning. give rationale
-    - draft2 feedback, comment p.42: give GCN label that we will refer to it using something like "subgraphed EFG"
-    - draft2 feedback, comment p.52: explain how hd can be tuned.
+    - [19/09] draft2 feedback, comment p.41: explicate lr and hd as HPs which I'll be tuning. give rationale
+    - [19/09] draft2 feedback, comment p.42: give GCN label that we will refer to it using something like "subgraphed EFG"
 - 6 Results
     - [01/09] write subsections about the 3 experiments
     - [01/09] Recreate, update, and check figures and tables
     - [14/09] Explicitly note that the scales are not aligned, and argue this is okay as we intend to compare hyperparameter settings within each encoding and dataset, we don't compare encodings yet.
     - [14/09] Align violin plots with learning curve plots in terms of size
     - [18/09] Update baseline tables to exclude Adams reference and include GCN HP config and subgraph sampling information
-    - draft2 feedback, comment p.52: recap why tuning lr and hd, and what hd's effect is
-    - draft2 feedback, comment p.56: add figures that group on metric score
-    - draft2 feedback, comment p.56: how to deal with MAPE
-    - draft2 feedback, comment p.60: split paragraph, such that explanation about why sg sampling does not work here is highlighted
+    - [19/09] draft2 feedback, comment p.52: recap why tuning lr and hd, and what hd's effect is
+    - [19/09] draft2 feedback, comment p.56: add figures that group on metric score. Solution: We've restructured the table
 - 7 Discussion
     - [02/09] Go by each dataset to scrutinize and interpret the findings (across the 3 experiments)
     - [02/09] Discuss information leakage issue, and recommendations and implications of HOEG configuration
     - [02/09] Give synthesis of results (across the datasets)
-    - Revise language to be more formal (as it was written very quickly)
-    - Add subsubsection headings for structure
+    - [19/09] draft2 feedback, comment p.60: split paragraph, such that explanation about why sg sampling does not work here is highlighted
+    - [19/09] Fill up and correct numbers in subgraph sampling explanation (Section 7.1), emphasizing its effect on model evaluation
+    - (optional) Revise language to be more formal (as it was written very quickly)
+    - (optional) Add subsubsection headings for structure
 - 8 Conclusion
     - [02/09] Discuss possible directions future work
     - [02/09] Summarize thesis
