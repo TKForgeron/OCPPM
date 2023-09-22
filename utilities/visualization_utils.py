@@ -188,7 +188,7 @@ def get_subgraph_sampling_learning_curves(
         plt.plot(
             train_data["Step"],
             train_data["Value"],
-            label=f"{model_color_map[0].upper()} Train Loss",
+            label=f"{model_color_map[0]} Train Loss",
             linestyle=line_style,
             color=model_color_map[1][0],
         )
@@ -197,7 +197,7 @@ def get_subgraph_sampling_learning_curves(
         plt.plot(
             validation_data["Step"],
             validation_data["Value"],
-            label=f"{model_color_map[0].upper()} Validation Loss",
+            label=f"{model_color_map[0]} Validation Loss",
             linestyle=line_style,
             color=model_color_map[1][1],
         )
