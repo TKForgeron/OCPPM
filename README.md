@@ -73,8 +73,6 @@ Object-centric predictive process monitoring research project. The purpose of th
     - [02/09] Give synthesis of results (across the datasets)
     - [19/09] draft2 feedback, comment p.60: split paragraph, such that explanation about why sg sampling does not work here is highlighted
     - [19/09] Fill up and correct numbers in subgraph sampling explanation (Section 7.1), emphasizing its effect on model evaluation
-    - (optional) Revise language to be more formal (as it was written very quickly)
-    - (optional) Add subsubsection headings for structure
 - 8 Conclusion
     - [02/09] Discuss possible directions future work
     - [02/09] Summarize thesis
