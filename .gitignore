@@ -7,6 +7,9 @@ ltest*
 *.tikz
 *.tex
 
+# Data
+data/
+
 # CS dataset
 data/CS/
 
