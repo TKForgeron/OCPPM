@@ -91,7 +91,7 @@ def create_exp2a_plot(
     legend_location: Optional[str] = None,
     save: bool = True,
 ) -> None:
-    # prepare the data 
+    # prepare the data
     enc_perf_on_dataset = encoding_performances[dataset]
     efg_pos = []
     efg_data = []
@@ -115,7 +115,7 @@ def create_exp2a_plot(
 
     data = efg_data + hoeg_data
     pos = efg_pos + hoeg_pos
-    
+
     # create the violin plots
     plt.figure(figsize=figsize)  # Set the figure size
     violin_split_colors = [YELLOW, ORANGE, RED] * 2
@@ -239,16 +239,16 @@ def get_exp2b_plot(
         "efg": (BURGUNDY, ORANGE),
         "hoeg": (DARKBLUE, BLUE),
     },
-    figsize: tuple[Union[int,float],Union[int,float]] = (10, 5.25),
+    figsize: tuple[Union[int, float], Union[int, float]] = (10, 5.25),
     fontsize: Optional[Union[float, int]] = None,
     save: bool = True,
     output_file: Optional[str] = None,
 ) -> None:
     # Read data from CSV files
     encodings = list(encoding_colors.keys())
-    train_data_efg = (
-        train_data_hoeg
-    ) = validation_data_efg = validation_data_hoeg = pd.DataFrame()
+    train_data_efg = train_data_hoeg = validation_data_efg = validation_data_hoeg = (
+        pd.DataFrame()
+    )
     for encoding in encodings:
         for root, _, files in os.walk(f"{data_base_path}/{dataset}/{encoding}"):
             for file in files:
@@ -330,6 +330,7 @@ def load_experiment_results(
     base_dir,
     hp_key: str = "lr",
     hyperparameters: list[str] = ["learning_rate", "hidden_dimensions"],
+    on_windows: bool = False,
 ) -> dict:
     """
     indicate base directory (e.g.: .../exp_v1)
@@ -359,13 +360,19 @@ def load_experiment_results(
             }
       )
     """
+    dir_layer_indicator = "\\" if on_windows else "/"
+    base_dir = (
+        base_dir.replace("/", "\\") if ("/" in base_dir and on_windows) else base_dir
+    )
 
     experiment_results = {}
     # Iterate through all subdirectories and files in the base directory
     for root, dirs, files in os.walk(base_dir):
         if "run" in dirs:
             hp_tuning_runs = [
-                part for part in root.split("/") if part.startswith(hp_key)
+                part
+                for part in root.split(dir_layer_indicator)
+                if part.startswith(hp_key)
             ]
             if len(hp_tuning_runs):
                 # retrieve hyperparameter values from folder name
